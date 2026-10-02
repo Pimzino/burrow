@@ -91,7 +91,7 @@ struct SettingsGeneralPane: View {
             }
 
             Section("Startup and permissions") {
-                Toggle(isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin)) {
+                Toggle(isOn: Binding(get: { launchAtLogin }, set: { setLaunchAtLogin($0) })) {
                     Text("Open Burrow at login")
                     if let loginError {
                         Text(loginError).foregroundStyle(Color.moleWarn)
