@@ -1,0 +1,6 @@
+.build/
+build/
+.swiftpm/
+*.xcuserstate
+.claude/
+e2e-results/

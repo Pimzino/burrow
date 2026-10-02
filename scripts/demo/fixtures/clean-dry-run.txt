@@ -1,0 +1,86 @@
+
+Clean Your Mac
+
+Dry Run Mode, Preview only, no deletions
+
+◎ System caches need sudo, run sudo -v && mo clean --dry-run for full preview
+
+⚙ Apple Silicon | Free space: 128.42GB
+✓ Whitelist: 13 core patterns active
+  ↳ /Users/demo/Library/Caches/ms-playwright*
+  ↳ /Users/demo/.gradle/caches/*
+  ↳ /Users/demo/.gradle/daemon/*
+  ↳ /Users/demo/.ollama/models/*
+  ↳ /Users/demo/Library/Caches/JetBrains*
+  ↳ /Users/demo/Library/Caches/com.apple.finder
+  ↳ /Users/demo/Library/Mobile Documents*
+
+➤ User essentials
+  → User app cache · 38 items, 2.84GB dry
+  → User app logs · 17 items, 412.6MB dry
+  → Trash · would empty, 64 items
+
+➤ App caches
+  → Spotify cache · 3 items, 1.21GB dry
+  → Slack cache · 6 items, 486.3MB dry
+  → Discord cache · 4 items, 312.8MB dry
+  → Figma cache · 2 items, 204.5MB dry
+  → Apple Music cache · 3 items, 96.1MB dry
+
+➤ Browsers
+  → Chrome cache · 5 items, 1.38GB dry
+  → Chrome code cache · 2 items, 214.9MB dry
+  → Safari web browser cache · 3 items, 168.2MB dry
+  → Arc cache · 4 items, 352.7MB dry
+
+➤ Cloud & Office
+  ✓ Nothing to clean
+
+➤ Developer tools
+  → Xcode DerivedData · 9 items, 4.62GB dry
+  → npm cache · 1 items, 1.08GB dry
+  → Homebrew cache · 12 items, 865.4MB dry
+  → pnpm store · 1 items, 642.0MB dry
+  → CocoaPods cache · 1 items, 318.6MB dry
+  → pip cache · 1 items, 210.3MB dry
+  → Simulator caches · 4 items, 188.7MB dry
+
+➤ Apps & utilities
+  → VS Code cache · 3 items, 284.1MB dry
+  → Zoom logs · 2 items, 46.8MB dry
+  → Raycast cache · 1 items, 22.4MB dry
+
+➤ Virtualization
+  ✓ Nothing to clean
+
+➤ Application Support
+  → Application Support logs/caches · 7 items, 139.6MB dry
+
+➤ App leftovers
+  → Leftovers of removed apps · 3 items, 74.2MB dry
+
+➤ Apple Silicon updates
+  ✓ Nothing to clean
+
+➤ Device backups & firmware
+  → iOS/iPadOS device firmware (.ipsw) · 1 items, 7.84GB dry
+
+➤ Time Machine
+  ✓ Nothing to clean
+
+➤ Large files
+  ⊙ Simulator data · 5.50GB · ~/Library/Developer/CoreSimulator/Devices
+  ⊙ Docker data · 3.92GB · ~/Library/Containers/com.docker.docker/Data
+  ⊙ Ollama models · 2.41GB · ~/.ollama/models
+
+➤ Project artifacts
+  ◎ Build artifacts · scan skipped · mo purge
+
+
+======================================================================
+Dry run complete - no changes made
+Potential space: 24.31GB | Items: 197 | Categories: 8
+Detailed file list: @CLEAN_LIST@
+Use mo clean --whitelist to add protection rules
+======================================================================
+

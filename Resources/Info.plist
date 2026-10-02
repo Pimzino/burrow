@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>en</string>
+	<key>CFBundleExecutable</key><string>Burrow</string>
+	<key>CFBundleIconFile</key><string>AppIcon</string>
+	<key>CFBundleIdentifier</key><string>io.github.pimzino.burrow</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>Burrow</string>
+	<key>CFBundleDisplayName</key><string>Burrow</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>1.0.0</string>
+	<key>CFBundleVersion</key><string>1</string>
+	<key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key><string>26.0</string>
+	<key>NSHighResolutionCapable</key><true/>
+	<key>NSPrincipalClass</key><string>NSApplication</string>
+	<key>NSAppleEventsUsageDescription</key><string>Burrow asks Finder for accurate free-space figures, and Burrow and the Mole CLI use Finder to move protected items to the Trash.</string>
+	<key>NSDesktopFolderUsageDescription</key><string>Burrow lets Mole scan your Desktop for old installers and project build artifacts.</string>
+	<key>NSDocumentsFolderUsageDescription</key><string>Burrow lets Mole scan Documents for old installers and project build artifacts.</string>
+	<key>NSDownloadsFolderUsageDescription</key><string>Burrow lets Mole scan Downloads for old installers and leftovers.</string>
+	<key>NSRemovableVolumesUsageDescription</key><string>Burrow lets Mole analyze and clean system metadata on external drives.</string>
+	<key>NSNetworkVolumesUsageDescription</key><string>Burrow's disk analyzer uses Mole to measure folders on network volumes.</string>
+	<key>NSHumanReadableCopyright</key><string>© 2026 Jose Freitas. Burrow is a GUI for the Mole CLI by tw93.</string>
+</dict>
+</plist>

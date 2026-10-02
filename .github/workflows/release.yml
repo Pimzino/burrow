@@ -1,0 +1,120 @@
+# Builds a release DMG for a version tag (v1.2.3) and publishes it as a GitHub Release.
+#
+# Runner and Xcode: see ci.yml (macos-26, Xcode 26.6 at /Applications/Xcode_26.6.app, from the
+# actions/runner-images macos-26-arm64 image readme).
+#
+# Signing is optional. If the repository secrets MACOS_CERT_P12_BASE64 (a base64-encoded .p12 with the
+# certificate and its private key) and MACOS_CERT_PASSWORD are set, the certificate is imported into a
+# temporary keychain and used for the app and the DMG. Otherwise both are signed ad-hoc.
+# Burrow is not notarized either way; docs/INSTALL.md explains how users open it.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # gh release create
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode
+        run: ./scripts/ci-select-xcode.sh "$XCODE_APP"
+
+      - name: Read version from tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag $TAG is not a version like v1.2.3"; exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Import signing certificate (optional)
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          if [[ -z "$MACOS_CERT_P12_BASE64" || -z "$MACOS_CERT_PASSWORD" ]]; then
+            echo "No signing secrets: the app and DMG will be signed ad-hoc."
+            echo "MOLE_SIGN_IDENTITY=-" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/burrow-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          P12="$RUNNER_TEMP/burrow-cert.p12"
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$P12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$P12" -k "$KEYCHAIN" -P "$MACOS_CERT_PASSWORD" -f pkcs12 -T /usr/bin/codesign
+          # Let codesign use the key without a UI prompt.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          # Put the temporary keychain first in the user search list, keeping the existing ones.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$P12"
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | awk 'NR==1 && $2 ~ /^[0-9A-F]{40}$/ {print $2}')"
+          if [[ -z "$IDENTITY" ]]; then
+            echo "::error::The imported certificate has no valid code-signing identity"
+            security find-identity -v -p codesigning "$KEYCHAIN"
+            exit 1
+          fi
+          echo "Signing with $(security find-identity -v -p codesigning "$KEYCHAIN" | head -1)"
+          echo "MOLE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Build Burrow.app
+        env:
+          BURROW_VERSION: ${{ env.VERSION }}
+          BURROW_BUILD: ${{ github.run_number }}
+        run: |
+          ./scripts/build-app.sh release
+          codesign --verify --deep --strict --verbose=2 build/Burrow.app
+          plutil -lint build/Burrow.app/Contents/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/Burrow.app/Contents/Info.plist
+
+      - name: Build DMG
+        env:
+          BURROW_SKIP_BUILD: "1"
+        run: |
+          ./scripts/make-dmg.sh "$VERSION"
+          hdiutil verify "build/Burrow-$VERSION.dmg"
+          cat "build/Burrow-$VERSION.dmg.sha256"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=()
+          [[ "$VERSION" == *-* ]] && PRERELEASE=(--prerelease)
+          gh release create "$TAG" \
+            "build/Burrow-$VERSION.dmg" \
+            "build/Burrow-$VERSION.dmg.sha256" \
+            --title "Burrow $VERSION" \
+            --generate-notes \
+            --verify-tag \
+            "${PRERELEASE[@]}"
+
+      - name: Remove temporary keychain
+        if: always()
+        run: |
+          if [[ -n "${SIGNING_KEYCHAIN:-}" ]]; then
+            security delete-keychain "$SIGNING_KEYCHAIN" || true
+          fi
+          rm -f "$RUNNER_TEMP/burrow-cert.p12"

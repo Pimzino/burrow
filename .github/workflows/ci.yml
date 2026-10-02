@@ -1,0 +1,128 @@
+# Build, check and package Burrow on every push and pull request to master.
+#
+# Runner: `macos-26` is the GitHub-hosted macOS 26 (Tahoe) arm64 image (GA; it is also `macos-latest`).
+# Source: https://github.com/actions/runner-images README ("macOS 26 Arm64": macos-latest, macos-26,
+# macos-26-xlarge) and images/macos/macos-26-arm64-Readme.md (image 20260907, macOS 26.6.2), which lists
+# Xcode 26.0.1 to 26.6 installed as /Applications/Xcode_26.x.app, with Xcode 26.6 (17F113) as default.
+# Burrow needs the macOS 26 SDK and Swift 6.2+ (swift-tools-version 6.2, Liquid Glass APIs), so any
+# Xcode 26.x works; scripts/ci-select-xcode.sh pins XCODE_APP and falls back to the newest Xcode 26+.
+#
+# Actions are pinned to full commit SHAs (verified with `git ls-remote`, Sept 2026):
+#   actions/checkout        v7.0.1  3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/upload-artifact v7.0.1  043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODE_APP: /Applications/Xcode_26.6.app
+
+jobs:
+  build:
+    name: Build and package
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode
+        run: ./scripts/ci-select-xcode.sh "$XCODE_APP"
+
+      - name: swift build (release)
+        run: swift build -c release --arch arm64
+
+      - name: Build Burrow.app
+        # No signing identity on CI, so build-app.sh signs ad-hoc.
+        env:
+          MOLE_SIGN_IDENTITY: "-"
+        run: ./scripts/build-app.sh release
+
+      - name: Verify bundle
+        run: |
+          codesign --verify --deep --strict --verbose=2 build/Burrow.app
+          plutil -lint Resources/Info.plist build/Burrow.app/Contents/Info.plist
+          test -x build/Burrow.app/Contents/MacOS/Burrow
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Burrow.app/Contents/Info.plist)" = "io.github.pimzino.burrow"
+
+      - name: Build DMG
+        env:
+          BURROW_SKIP_BUILD: "1"
+          MOLE_SIGN_IDENTITY: "-"
+        run: |
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)-ci.${GITHUB_SHA::7}"
+          ./scripts/make-dmg.sh "$VERSION"
+          hdiutil verify build/Burrow-*.dmg
+          ditto -c -k --keepParent build/Burrow.app "build/Burrow-$VERSION.app.zip"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Burrow-dmg
+          path: |
+            build/Burrow-*.dmg
+            build/Burrow-*.dmg.sha256
+          if-no-files-found: error
+
+      - name: Upload app zip
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Burrow-app
+          path: build/Burrow-*.app.zip
+          if-no-files-found: error
+
+  e2e:
+    # Informational only: GitHub-hosted runners have a logged-in GUI session, but no Full Disk Access
+    # or pre-granted privacy permissions, and window capture can be refused. Failures here never
+    # block a merge. The screens run only their safe automated action (scan, dry run or list).
+    name: E2E (informational)
+    runs-on: macos-26
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode
+        run: ./scripts/ci-select-xcode.sh "$XCODE_APP"
+
+      - name: Install the Mole CLI
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          brew install mole
+          mo --version
+
+      - name: Run E2E subset
+        env:
+          MOLE_SIGN_IDENTITY: "-"
+        run: |
+          ./scripts/e2e.sh dashboard history protection analyze
+          latest="$(ls -td e2e-results/*/ | head -1)"
+          cat "$latest/summary.json"
+          python3 - "$latest/summary.json" >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+          s = json.load(open(sys.argv[1]))
+          print(f"### Burrow E2E: {s['passed']}/{s['total']} passed\n")
+          for r in s["results"]:
+              print(f"- {'PASS' if r['passed'] else 'FAIL'} **{r['feature']}**: {r['detail']}")
+          PY
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-results
+          path: e2e-results/
+          if-no-files-found: warn

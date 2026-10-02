@@ -1,0 +1,73 @@
+# Mole Cleanup Preview - @NOW@
+#
+# How to protect files:
+# 1. Copy any path below to ~/.config/mole/whitelist
+# 2. Run: mo clean --whitelist
+#
+# Example:
+#   /Users/*/Library/Caches/com.example.app
+#
+
+
+=== User essentials ===
+/Users/demo/Library/Caches/com.apple.Safari  # 168.2MB
+/Users/demo/Library/Caches/Google  # 1.38GB
+/Users/demo/Library/Caches/Homebrew  # 865.4MB
+/Users/demo/Library/Caches/pip  # 210.3MB
+/Users/demo/Library/Caches/com.spotify.client  # 1.21GB
+/Users/demo/Library/Caches/com.tinyspeck.slackmacgap  # 486.3MB
+/Users/demo/Library/Caches/com.figma.Desktop  # 204.5MB
+/Users/demo/Library/Caches/com.raycast.macos  # 22.4MB
+/Users/demo/Library/Caches/electron  # 312.6MB
+/Users/demo/Library/Caches/GeoServices  # 52.6MB
+/Users/demo/Library/Logs/DiagnosticReports  # 96.4MB, 42 items
+/Users/demo/Library/Logs/zoom.us  # 46.8MB
+/Users/demo/Library/Logs/Homebrew  # 18.2MB
+/Users/demo/.Trash  # size unknown, 64 items
+
+=== App caches ===
+/Users/demo/Library/Application Support/Spotify/PersistentCache  # 1.21GB
+/Users/demo/Library/Application Support/Slack/Cache  # 486.3MB
+/Users/demo/Library/Application Support/discord/Cache  # 312.8MB
+/Users/demo/Library/Application Support/Figma/DesktopProfile  # 204.5MB
+/Users/demo/Library/Caches/com.apple.Music  # 96.1MB
+
+=== Browsers ===
+/Users/demo/Library/Caches/Google/Chrome/Default/Cache  # 1.38GB
+/Users/demo/Library/Application Support/Google/Chrome/Default/Code Cache  # 214.9MB
+/Users/demo/Library/Caches/com.apple.Safari/WebKitCache  # 168.2MB
+/Users/demo/Library/Caches/Arc  # 352.7MB
+
+=== Developer tools ===
+/Users/demo/Library/Developer/Xcode/DerivedData/Website-akzpqhcbdl  # 1.92GB
+/Users/demo/Library/Developer/Xcode/DerivedData/WeatherApp-bdwqoxrkme  # 1.48GB
+/Users/demo/Library/Developer/Xcode/DerivedData/Notes-cfhyzsltaq  # 1.22GB
+/Users/demo/.npm/_cacache  # 1.08GB
+/Users/demo/Library/Caches/Homebrew/downloads  # 865.4MB
+/Users/demo/Library/pnpm/store  # 642.0MB
+/Users/demo/Library/Caches/CocoaPods  # 318.6MB
+/Users/demo/Library/Caches/pip  # 210.3MB
+/Users/demo/Library/Developer/CoreSimulator/Caches  # 188.7MB
+
+=== Apps & utilities ===
+/Users/demo/Library/Application Support/Code/Cache  # 284.1MB
+/Users/demo/Library/Logs/zoom.us  # 46.8MB
+/Users/demo/Library/Caches/com.raycast.macos  # 22.4MB
+
+=== Application Support ===
+/Users/demo/Library/Application Support/CrashReporter  # 139.6MB, 7 items
+
+=== App leftovers ===
+/Users/demo/Library/Application Support/OldEditor  # 52.1MB
+/Users/demo/Library/Preferences/com.example.oldeditor.plist  # 4KB
+/Users/demo/Library/Caches/com.example.oldeditor  # 22.1MB
+
+=== Device backups & firmware ===
+/Users/demo/Library/iTunes/iPhone Software Updates/iPhone17,1_26.0_23A341_Restore.ipsw  # 7.84GB
+
+# ============================================
+# Summary
+# ============================================
+# Potential cleanup: 24.31GB
+# Items: 197
+# Categories: 8

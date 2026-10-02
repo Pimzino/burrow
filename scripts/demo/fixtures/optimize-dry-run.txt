@@ -1,0 +1,85 @@
+
+Optimize
+→ DRY RUN MODE, No files will be modified
+
+⚙ System  11/16 GB RAM | 332/460 GB Disk | Uptime 3d
+
+Performance diagnosis
+  ◎ Likely bottleneck: WindowServer (~46.1% CPU sustained)
+  ⊙ Desktop composition is busy. When another family is higher, treat this as a likely symptom rather than the root cause.
+  ◎ Memory pressure: swap 1.86GB of 3.22GB used (58%), 41% free
+    Xcode                       1.21GB
+    Safari                      684.3MB
+    WindowServer                512.9MB
+    Music                       318.4MB
+
+➤ DNS & Spotlight Check
+  → DNS cache flushed
+  → Spotlight index verified
+
+➤ Finder Cache Refresh
+  → QuickLook thumbnails refreshed
+  → Icon services cache rebuilt
+
+➤ App State Cleanup
+  → App saved states optimized
+
+➤ Broken Config Repair
+  → All preference files valid
+
+➤ Network Cache Refresh
+  → DNS cache already refreshed
+  → mDNSResponder already restarted
+
+➤ Database Optimization
+  → No databases found to optimize
+
+➤ Prevent Finder .DS_Store
+  → .DS_Store prevention enabled on network & USB volumes
+
+➤ Legacy Overrides
+  → No legacy App Nap or disk-image overrides found
+
+➤ Network Stack Refresh
+  → Network stack already optimal
+
+➤ Permission Repair
+  → User directory permissions already optimal
+
+➤ Spotlight Optimization
+  → Spotlight index already optimal
+
+➤ Spotlight Orphan Rules
+  → Spotlight search rules already clean
+
+➤ Periodic Maintenance
+  → Periodic maintenance skipped (not available on this macOS version)
+
+➤ Shared File Lists
+  → Shared file lists already clean
+
+➤ Disk Health
+  → Disk verify skipped (set MOLE_ENABLE_DISK_VERIFY=1 to enable)
+
+➤ Login Items
+  → All login items valid
+
+➤ Quarantine Database Cleanup
+  → Quarantine database already clean
+
+➤ Launch Agents Cleanup
+  → Launch Agents all healthy
+
+➤ Notifications
+  → Notification Center database is healthy (1.1MB)
+
+➤ Usage Data
+  → Knowledge database is healthy (45.9MB)
+
+======================================================================
+Dry Run Complete, No Changes Made
+Would apply 3 optimizations
+15 unchanged | 1 skipped | 1 unavailable
+Run without --dry-run to apply these changes
+======================================================================
+

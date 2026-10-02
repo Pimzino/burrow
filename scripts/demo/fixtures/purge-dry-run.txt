@@ -1,0 +1,19 @@
+→ DRY RUN MODE, No project artifacts will be removed
+
+Purge Project Artifacts
+
+✓ [DRY RUN] ~/Projects/website/node_modules, 812.4MB
+✓ [DRY RUN] ~/Projects/website/.next, 164.2MB
+✓ [DRY RUN] ~/Projects/weather-app/build, 96.8MB
+✓ [DRY RUN] ~/Projects/rust-cli/target, 1.42GB
+✓ [DRY RUN] ~/Projects/ml-notebook/.venv, 623.5MB
+✓ [DRY RUN] ~/Projects/ml-notebook/__pycache__, 3.1MB
+✓ [DRY RUN] ~/Projects/design-system/node_modules, 488.0MB
+✓ [DRY RUN] ~/Projects/design-system/dist, 12.6MB
+✓ [DRY RUN] ~/Code/ios-notes/Pods, 214.7MB
+
+======================================================================
+Dry run complete - no changes made
+Would free approximately: 3.84GB | Items: 9 | Free: 128.42GB
+======================================================================
+

@@ -1,0 +1,137 @@
+#!/bin/bash
+# Demo Mole: a stand-in `mo` launcher for privacy-safe screenshots and demos of Burrow.
+#
+#   Burrow -moleLauncherPath /path/to/scripts/demo/mo
+#
+# It answers the commands Burrow's screens use with dummy data (fixtures in ./fixtures, time-relative
+# data generated at run time) and passes a few read-only commands through to the real Mole. It NEVER
+# deletes anything: every command that could change the system is refused unless it is a dry run, a
+# listing or a status query. See README.md.
+set -uo pipefail
+
+# Real Mole. Burrow's MoleLocator reads this script and resolves Mole's libexec (lib/core/common.sh)
+# from the literal paths below, so keep them as plain quoted absolute paths ending in /mole.
+REAL_MO_CANDIDATES=(
+    "/opt/homebrew/opt/mole/libexec/mole"
+    "/usr/local/opt/mole/libexec/mole"
+)
+REAL_MO=""
+for candidate in "${REAL_MO_CANDIDATES[@]}"; do
+    if [[ -x "$candidate" ]]; then REAL_MO="$candidate"; break; fi
+done
+if [[ -z "$REAL_MO" ]] && command -v brew > /dev/null 2>&1; then
+    prefix=$(brew --prefix mole 2> /dev/null || true)
+    [[ -n "$prefix" && -x "$prefix/libexec/mole" ]] && REAL_MO="$prefix/libexec/mole"
+fi
+if [[ -z "$REAL_MO" ]]; then
+    echo "Demo Mole: the real Mole (Homebrew formula 'mole') was not found." >&2
+    exit 1
+fi
+
+# Pass-through commands go through the installed `mo` when there is one (so `--version` reports the
+# install type the same way), otherwise through the libexec launcher.
+REAL_CLI="$REAL_MO"
+for candidate in /opt/homebrew/bin/mo /usr/local/bin/mo; do
+    if [[ -x "$candidate" ]]; then REAL_CLI="$candidate"; break; fi
+done
+
+DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FIXTURES="$DEMO_DIR/fixtures"
+PYTHON=""
+for candidate in /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+    if [[ -x "$candidate" ]]; then PYTHON="$candidate"; break; fi
+done
+helper() {
+    if [[ -z "$PYTHON" ]]; then
+        echo "Demo Mole: python3 is required." >&2
+        exit 1
+    fi
+    exec "$PYTHON" -u "$DEMO_DIR/lib/demo.py" "$@"
+}
+
+refuse() {
+    echo "Demo Mole refuses 'mo $*': it only runs previews, listings and status queries, never changes." >&2
+    exit 1
+}
+
+# Like Mole, drop --debug from anywhere in argv.
+args=()
+for arg in "$@"; do
+    [[ "$arg" == "--debug" ]] || args+=("$arg")
+done
+set -- ${args[@]+"${args[@]}"}
+
+# has FLAG... : true when one of the subcommand's arguments is exactly one of FLAG...
+SUBARGS=("${@:2}")
+has() {
+    local want arg
+    for want in "$@"; do
+        for arg in ${SUBARGS[@]+"${SUBARGS[@]}"}; do
+            [[ "$arg" == "$want" ]] && return 0
+        done
+    done
+    return 1
+}
+command="${1:-}"
+
+case "$command" in
+    "--version" | "-V" | "version" | "--help" | "-h" | "help")
+        exec "$REAL_CLI" "$@"
+        ;;
+    "status")
+        helper status "$REAL_CLI" "${@:2}"
+        ;;
+    "clean")
+        has --help -h && exec "$REAL_CLI" "$@"
+        has --whitelist && refuse "$@"
+        has --dry-run -n || refuse "$@"
+        # An external-volume preview is a real (read-only) dry run; everything else is the fixture.
+        has --external && exec "$REAL_CLI" "$@" < /dev/null
+        helper replay "$FIXTURES/clean-dry-run.txt" 1.6 0.12
+        ;;
+    "optimize" | "optimise")
+        has --help -h && exec "$REAL_CLI" "$@"
+        has --whitelist && refuse "$@"
+        has --dry-run -n || refuse "$@"
+        helper replay "$FIXTURES/optimize-dry-run.txt" 0.6 0.08
+        ;;
+    "purge")
+        # Even `--help` and `--paths` make the real purge write its paths config, so nothing passes through.
+        has --dry-run -n || refuse "$@"
+        has --paths && refuse "$@"
+        helper replay "$FIXTURES/purge-dry-run.txt" 1.5 0.5
+        ;;
+    "installer")
+        has --dry-run -n --help -h || refuse "$@"
+        helper installer "${@:2}"
+        ;;
+    "uninstall")
+        if has --list; then
+            sleep 2
+            cat "$FIXTURES/uninstall-list.json"
+            exit 0
+        fi
+        has --help -h && exec "$REAL_CLI" "$@"
+        has --dry-run -n || refuse "$@"
+        exec "$REAL_CLI" "$@"
+        ;;
+    "history")
+        helper history "${@:2}"
+        ;;
+    "analyze" | "analyse")
+        helper analyze "${@:2}"
+        ;;
+    "touchid")
+        # `touchid status` and dry runs are read-only.
+        if [[ "${2:-}" == "status" ]] || has --dry-run -n --help -h; then exec "$REAL_CLI" "$@"; fi
+        refuse "$@"
+        ;;
+    "completion" | "remove")
+        has --dry-run -n --help -h || refuse "$@"
+        exec "$REAL_CLI" "$@"
+        ;;
+    *)
+        # The bare main menu, `update` and unknown commands.
+        refuse "$@"
+        ;;
+esac
