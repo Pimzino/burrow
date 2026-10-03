@@ -30,6 +30,8 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # full history and tags, for the commit list in the release notes
 
       - name: Select Xcode
         run: ./scripts/ci-select-xcode.sh "$XCODE_APP"
@@ -101,12 +103,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Commits since the previous v* tag go first; gh prepends --notes-file text to the
+          # generated notes (merged PRs, new contributors, full changelog link).
+          ./scripts/release-notes.sh "$TAG" > "$RUNNER_TEMP/release-notes.md"
+          cat "$RUNNER_TEMP/release-notes.md"
           PRERELEASE=()
           [[ "$VERSION" == *-* ]] && PRERELEASE=(--prerelease)
           gh release create "$TAG" \
             "build/Burrow-$VERSION.dmg" \
             "build/Burrow-$VERSION.dmg.sha256" \
             --title "Burrow $VERSION" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
             --generate-notes \
             --verify-tag \
             "${PRERELEASE[@]}"
