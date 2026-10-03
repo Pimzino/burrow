@@ -686,12 +686,14 @@ def lockup(icon, color, width=1600):
     place(out, w, x0 + body + gap, cy + cap / 2 - base)
     return out
 
-def strata(h, w, seed, lines=10, glow=None, strength=1.0):
-    """Faint sedimentary layers: wavy hairlines with slightly lighter bands, lit near the glow."""
+def strata(h, w, seed, lines=10, glow=None, strength=1.0, ch=None, cw=None):
+    """Faint sedimentary layers: wavy hairlines with slightly lighter bands, lit near the glow.
+    Laid out for an h x w scene; ch x cw (default the same) is the canvas they are drawn on."""
+    ch, cw = ch or h, cw or w
     rng = np.random.default_rng(seed)
-    X, Y = np.meshgrid(np.arange(w, dtype=np.float32) + 0.5, np.arange(h, dtype=np.float32) + 0.5)
-    acc = np.zeros((h, w), np.float32)
-    band = np.zeros((h, w), np.float32)
+    X, Y = np.meshgrid(np.arange(cw, dtype=np.float32) + 0.5, np.arange(ch, dtype=np.float32) + 0.5)
+    acc = np.zeros((ch, cw), np.float32)
+    band = np.zeros((ch, cw), np.float32)
     for k in range(lines):
         y0 = h * (0.08 + 0.92 * (k + rng.uniform(0.2, 0.8)) / lines)
         a1, a2 = rng.uniform(0.010, 0.030) * h, rng.uniform(0.004, 0.012) * h
@@ -706,25 +708,31 @@ def strata(h, w, seed, lines=10, glow=None, strength=1.0):
         out *= 0.35 + glow * 1.6
     return out * strength
 
-def scene_bg(h, w, gx, gy, gr, seed=3, strata_k=1.0, glow_k=1.0):
+def scene_bg(h, w, gx, gy, gr, seed=3, strata_k=1.0, glow_k=1.0, ch=None, cw=None, vig_floor=0.0):
     """Night-soil ground, faint tunnel strata, and a lantern glow centred on (gx, gy), the icon's
-    centre: it is mostly hidden behind the icon and shows as a warm aura round its edges."""
-    yy = np.linspace(0, 1, h, dtype=np.float32)[:, None, None]
+    centre: it is mostly hidden behind the icon and shows as a warm aura round its edges.
+    The scene is laid out for h x w; ch x cw (default the same) is the canvas, so a larger canvas
+    carries the ground on past the right and bottom edges. vig_floor stops the vignette there
+    from running down to black."""
+    ch, cw = ch or h, cw or w
+    yy = np.clip(np.arange(ch, dtype=np.float32) / (h - 1), 0, 1)[:, None, None]
     rgb = (BURROW * 0.85 + VELVET * 0.08) * (1 - yy) + NIGHT * 0.92 * yy
-    rgb = np.broadcast_to(rgb, (h, w, 3)).copy()
-    g_far = radial(h, w, gx, gy, gr * 1.6)
-    st = strata(h, w, seed, glow=g_far, strength=strata_k)[..., None]
+    rgb = np.broadcast_to(rgb, (ch, cw, 3)).copy()
+    g_far = radial(ch, cw, gx, gy, gr * 1.6)
+    st = strata(h, w, seed, glow=g_far, strength=strata_k, ch=ch, cw=cw)[..., None]
     rgb = rgb + st * (VELVET * 0.6 + LANTERN * 0.2 * g_far[..., None] + 0.15)
     # a faint plum lift so the aura does not sit on flat black, then the lantern aura itself
     # (lantern-heavy: an ember-heavy haze over plum turns brown)
     rgb = screen(rgb, VELVET * g_far[..., None] * 0.22 * glow_k)
-    g = radial(h, w, gx, gy, gr) ** 1.3
+    g = radial(ch, cw, gx, gy, gr) ** 1.3
     rgb = screen(rgb, (LANTERN * 0.9 + EMBER * 0.1) * g[..., None] * 0.20 * glow_k)
-    X, Y = np.meshgrid(np.linspace(-1, 1, w), np.linspace(-1, 1, h))
-    vig = np.clip(1 - 0.28 * (X ** 2 * 0.6 + Y ** 2) ** 1.2, 0, 1)[..., None]
-    rgb = rgb * vig
-    rgb = np.clip(rgb + grain(h, w, 0.006, seed), 0, 1)
-    return np.dstack([rgb, np.ones((h, w))]).astype(np.float32)
+    X, Y = np.meshgrid(-1 + 2 * np.arange(cw) / (w - 1), -1 + 2 * np.arange(ch) / (h - 1))
+    vig = 1 - 0.28 * (X ** 2 * 0.6 + Y ** 2) ** 1.2
+    if vig_floor > 0:   # smooth max(vig, floor)
+        vig = (vig + vig_floor + np.sqrt((vig - vig_floor) ** 2 + 0.05 ** 2)) / 2
+    rgb = rgb * np.clip(vig, 0, 1)[..., None]
+    rgb = np.clip(rgb + grain(ch, cw, 0.006, seed), 0, 1)
+    return np.dstack([rgb, np.ones((ch, cw))]).astype(np.float32)
 
 def hero(icon, W, H, icon_px, word_px, tag_px, extra=None):
     body = icon_px * BODY / CANVAS
@@ -770,11 +778,23 @@ def mint_dot(r):
     a = down(((X - n / 2) ** 2 + (Y - n / 2) ** 2 <= r * r).astype(np.float32), 8)
     return layer(a, MINT, 0.9)
 
+# Finder pins the DMG background to the window's top-left corner and paints white wherever the picture
+# runs out (the view's background colour is ignored once a picture is set), so the picture is far
+# bigger than the window: the 660 x 420 pt composition sits top-left, its ground carries on for
+# DMG_FADE pt past the right and bottom edges, then settles to one flat colour out to DMG_CANVAS,
+# enough for a full-screen window on a 6K display. The flat area compresses to almost nothing.
+DMG_DESIGN = (660, 420)
+DMG_CANVAS = (3200, 2000)
+DMG_FADE = 360
+
 def dmg_background(scale):
-    """660 x 420 pt Finder window. Drop zones: app at (170, 210), Applications at (490, 210)."""
+    """Finder window, 660 x 420 pt of content. Drop zones: app at (170, 210), Applications at (490, 210).
+    Returns the full canvas and the dither weight (zero over the flat colour, so it stays exactly flat)."""
     s = scale
-    W, H = 660 * s, 420 * s
-    img = scene_bg(H, W, 170 * s, 210 * s, 78 * s, seed=11, strata_k=0.8, glow_k=0.8)
+    W, H = DMG_DESIGN[0] * s, DMG_DESIGN[1] * s
+    F = DMG_FADE * s
+    EW, EH = W + F, H + F
+    img = scene_bg(H, W, 170 * s, 210 * s, 78 * s, seed=11, strata_k=0.8, glow_k=0.8, ch=EH, cw=EW, vig_floor=0.45)
     # straight arrow between the zones: clean cream stroke with a symmetric chevron head
     y, x0, x1 = 210.0, 268.0, 392.0
     wd = 3.2
@@ -784,10 +804,31 @@ def dmg_background(scale):
         tail = (x1 - 13.0 * math.cos(ang), y + 13.0 * math.sin(ang))
         a = np.maximum(a, stroke_path(W, H, [(tail[0] * s, tail[1] * s), (x1 * s, y * s)], [wd * s, wd * s], ss=4))
     over(img, layer(a, CREAM, 0.70), 0, 0)
+    # Finder draws icon labels black whenever the window has a background picture, in Dark Mode too,
+    # so each label gets a cream plate to sit on. Where Finder puts them (measured on macOS 26, 13 pt
+    # text, 128 pt icons): centred on the icon's x, cap top at y = 288.5 pt, baseline at 297.5 pt.
+    X, Y = np.meshgrid(np.arange(W) + 0.5, np.arange(H) + 0.5)
+    for name, cx in (("Burrow", 170), ("Applications", 490)):
+        hw = text(name, 13 * s)[0].shape[1] / 2 + 11 * s   # half the label's ink width, plus padding
+        hh = 11 * s
+        d = np.hypot(np.maximum(np.abs(X - cx * s) - (hw - hh), 0), Y - 293.5 * s) - hh   # capsule distance
+        over(img, layer(np.clip(0.5 - d, 0, 1).astype(np.float32), CREAM, 0.92), 0, 0)
     t, tb, tcap = text_layer("First launch: System Settings \u2192 Privacy & Security \u2192 Open Anyway",
                              13 * s, CREAM, "medium", "default", 0.0, 0.75)
     place(img, t, (W - t.shape[1]) / 2, 392 * s - tb)
-    return img
+    # past the composition, ease the ground into the flat colour of the rest of the canvas
+    flat = NIGHT * 0.92 * 0.45
+    X, Y = np.meshgrid(np.arange(EW) + 0.5, np.arange(EH) + 0.5)
+    d = np.hypot(np.maximum(X - W, 0), np.maximum(Y - H, 0)) / F
+    m = (1 - smooth(0, 1, d)).astype(np.float32)
+    img[..., :3] = flat + (img[..., :3] - flat) * m[..., None]
+    CW, CH = DMG_CANVAS[0] * s, DMG_CANVAS[1] * s
+    out = np.empty((CH, CW, 4), np.float32)
+    out[..., :3], out[..., 3] = flat, 1
+    out[:EH, :EW] = img
+    weight = np.zeros((CH, CW), np.float32)
+    weight[:EH, :EW] = m > 0
+    return out, weight
 
 def mark_small(color, size):
     g = mark_fit(size, size * 0.625)
@@ -914,10 +955,11 @@ def main():
     write("readme-hero.png", hero_img)
     social_img = hero(icon, 1280, 640, 400, 132, 38, extra=(features_line(27), 56))
     write("social-preview.png", social_img)
-    d1, d2 = dmg_background(1), dmg_background(2)
-    write("dmg-background.png", d1)
-    write("dmg-background@2x.png", d2)
-    write("presentation.png", presentation(icon, smalls, sizes, hero_img, social_img, d2))
+    (d1, w1), (d2, w2) = dmg_background(1), dmg_background(2)
+    write("dmg-background.png", d1, dither=w1)
+    write("dmg-background@2x.png", d2, dither=w2)
+    dmg_view = d2[:DMG_DESIGN[1] * 2, :DMG_DESIGN[0] * 2]   # what the window shows when it opens
+    write("presentation.png", presentation(icon, smalls, sizes, hero_img, social_img, dmg_view))
 
 if os.environ.get("BRAND_NO_MAIN") != "1":
     main()

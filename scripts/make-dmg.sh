@@ -10,8 +10,11 @@
 #   BURROW_SKIP_FINDER=1      skip the Finder window layout (the DMG still works, with Finder's default view)
 #   MOLE_SIGN_IDENTITY        codesigning identity for the DMG (same rules as build-app.sh; "-" = ad-hoc)
 #
-# Artwork: art/brand/out/dmg-background.png (660x420) and dmg-background@2x.png (1320x840). If they are
-# missing, a placeholder in the brand colours is rendered by scripts/make-dmg-background.swift.
+# Artwork: art/brand/out/dmg-background.png (3200x2000) and dmg-background@2x.png (6400x4000). The 660x420 pt
+# composition sits in the top-left corner and the rest of the picture carries its ground on, because Finder
+# pins the picture to the window's top-left and paints white wherever it runs out when the window is
+# resized. If the files are missing, a placeholder in the brand colours is rendered by
+# scripts/make-dmg-background.swift.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
@@ -25,8 +28,10 @@ WORK="build/dmg-work"
 STAGE="$WORK/stage"
 RW="$WORK/Burrow-rw.dmg"
 
-# Window geometry (points). Keep in sync with the artwork size.
+# Window content geometry (points). Keep in sync with the artwork's composition (DMG_DESIGN in art/brand/build.py).
 WIN_W=660; WIN_H=420; ICON_SIZE=128
+# Finder's window bounds are the whole frame, title bar included: 32 pt on macOS 26 with the toolbar hidden.
+TITLEBAR_H=32
 APP_X=170; APP_Y=210; APPS_X=490; APPS_Y=210
 
 MOUNT=""; DEVICE=""
@@ -100,7 +105,7 @@ tell application "Finder"
       set current view of theWindow to icon view
       set toolbar visible of theWindow to false
       set statusbar visible of theWindow to false
-      set the bounds of theWindow to {200, 120, $((200 + WIN_W)), $((120 + WIN_H))}
+      set the bounds of theWindow to {200, 120, $((200 + WIN_W)), $((120 + TITLEBAR_H + WIN_H))}
       set viewOptions to the icon view options of theWindow
       set arrangement of viewOptions to not arranged
       set icon size of viewOptions to $ICON_SIZE

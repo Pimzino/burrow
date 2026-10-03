@@ -75,17 +75,29 @@ def mark_fit(size, unit, cx=None, top=None):
     return dict(cx=cx, cy=top + Ro, Ro=Ro, Ri=Ri, base=top + Ro + leg, Rd=Rd)
 
 # ---------------------------------------------------------------- PNG io
-def write_png(path, img, dither=False, seed=0):
-    """8-bit PNG. dither=True adds triangular (TPDF) noise to the colour channels before
-    quantising, so smooth dark gradients do not band; alpha is never dithered."""
+def quantise(img, dither=False, seed=0):
     f = np.asarray(img, np.float64) * 255
-    if dither:
+    if dither is not False and dither is not None:
         rng = np.random.default_rng(seed)
         n = rng.random(f.shape[:2] + (3,)) - rng.random(f.shape[:2] + (3,))   # -1..1 LSB, triangular
+        if not isinstance(dither, bool):
+            n *= np.asarray(dither)[..., None]
         if f.ndim == 3:
             f = f.copy()
             f[..., :3] += n
-    a = np.clip(np.floor(f + 0.5), 0, 255).astype(np.uint8)
+    return np.clip(np.floor(f + 0.5), 0, 255).astype(np.uint8)
+
+def write_png(path, img, dither=False, seed=0):
+    """8-bit PNG. dither=True adds triangular (TPDF) noise to the colour channels before
+    quantising, so smooth dark gradients do not band; alpha is never dithered. dither may also be
+    an (h, w) array that weights the noise per pixel (0 leaves a pixel exact); large images are
+    then quantised in strips to bound memory."""
+    if isinstance(dither, np.ndarray):
+        step = 256
+        a = np.concatenate([quantise(img[y:y + step], dither[y:y + step], seed + y)
+                            for y in range(0, img.shape[0], step)])
+    else:
+        a = quantise(img, dither, seed)
     if a.ndim == 2:
         a = a[..., None]
     h, w, c = a.shape
