@@ -34,7 +34,7 @@ Burrow never reimplements Mole's cleaning logic. Every action runs through `mo` 
 | **Installers** | Leftover `.dmg`, `.pkg`, `.iso`, `.xip` and `.zip` installers, grouped by where they live, with Quick Look. |
 | **History** | Space reclaimed, a timeline of every session and a searchable deletion audit. |
 | **Protection** | Mole's whitelist inventory, your own protected paths, optimization exclusions and project scan folders, all editable. |
-| **Settings** | Touch ID for sudo, shell completion, Mole updates, an activity console, logs, launch at login, and uninstalling Mole. |
+| **Settings** | Signed in-app updates for Burrow itself (from GitHub Releases), Touch ID for sudo, shell completion, Mole updates, an activity console, logs, launch at login, and uninstalling Mole. |
 
 <table>
   <tr>

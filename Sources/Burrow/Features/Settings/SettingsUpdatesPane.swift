@@ -22,9 +22,10 @@ struct SettingsUpdatesPane: View {
     var body: some View {
         Form {
             Section {
-                SettingsPaneHeader(tab: .updates, subtitle: "Keep the Mole CLI current. The app itself never changes Mole's files directly.")
+                SettingsPaneHeader(tab: .updates, subtitle: "Keep Burrow and the Mole CLI current. Burrow never changes Mole's files directly.")
             }
-            Section {
+            BurrowUpdateSection()
+            Section("Mole CLI") {
                 HStack(spacing: 16) {
                     versionColumn("Installed", installed, tint: .secondary)
                     Image(systemName: "arrow.right")
@@ -159,6 +160,48 @@ struct SettingsUpdatesPane: View {
                 await model.relocate()
                 await model.checkForUpdate()
                 lastChecked = Date()
+            }
+        }
+    }
+}
+
+/// Burrow's own updates, from GitHub Releases (the Software Update window does the work).
+private struct BurrowUpdateSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        @Bindable var updater = model.updater
+        Section("Burrow") {
+            LabeledContent("Installed") {
+                Text(updater.currentVersion?.description ?? "Development build").monospacedDigit()
+            }
+            LabeledContent("Status") {
+                if let release = updater.newer {
+                    SettingsStatusPill(text: "\(release.version) available", on: true, onColor: SettingsTab.updates.colors[0])
+                } else if let checked = updater.lastChecked {
+                    Text("Up to date · checked \(checked.formatted(.relative(presentation: .named)))").foregroundStyle(.secondary)
+                } else {
+                    Text("Not checked yet").foregroundStyle(.secondary)
+                }
+            }
+            Toggle(isOn: $updater.automaticChecks) {
+                Text("Check for updates automatically")
+                Text("Once a day, from Burrow's GitHub Releases. Nothing about your Mac is sent.")
+            }
+            Toggle(isOn: $updater.includePrereleases) {
+                Text("Include pre-releases")
+                Text("Offer beta builds too. They may be less stable.")
+            }
+            HStack {
+                Link("Release Notes", destination: UpdateConfig.releasesPage)
+                Spacer()
+                Button(updater.newer == nil ? "Check for Updates…" : "View Update…", systemImage: "sparkles") {
+                    openWindow(id: UpdateWindow.id)
+                    if updater.newer == nil { Task { await updater.check(userInitiated: true) } }
+                }
+                .buttonStyle(.glass)
+                .disabled(updater.phase.isBusy)
             }
         }
     }

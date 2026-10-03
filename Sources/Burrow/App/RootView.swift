@@ -4,6 +4,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(MoleService.self) private var service
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var model = model
@@ -36,6 +37,11 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.refreshPermissions()
         }
+        .onChange(of: model.updater.prompt, initial: true) { _, release in
+            guard release != nil else { return }
+            model.updater.prompt = nil
+            openWindow(id: UpdateWindow.id)
+        }
     }
 
     @ViewBuilder
@@ -57,6 +63,7 @@ struct RootView: View {
 private struct Sidebar: View {
     @Binding var selection: Route
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @Environment(MoleService.self) private var service
 
     var body: some View {
@@ -112,6 +119,16 @@ private struct Sidebar: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+            if let release = model.updater.newer {
+                Button {
+                    openWindow(id: UpdateWindow.id)
+                } label: {
+                    Label("Burrow \(release.version.description) available", systemImage: "sparkles")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
             }
             if let update = model.availableUpdate {
                 SettingsLink {

@@ -29,6 +29,7 @@ Burrow is tested end to end, in the real app against the real Mole:
 ```bash
 ./scripts/e2e.sh                        # every screen and every Settings tab
 ./scripts/e2e.sh clean uninstall        # just some screens
+./scripts/update-e2e.sh                 # Burrow's in-app updater, against a local fake GitHub API
 ```
 
 Each screen is launched with its **safe** automated action only (a scan, a dry run or a listing) and writes an automation report. The script captures screenshots and writes `e2e-results/<timestamp>/index.html` and `summary.json`. Please attach the summary (and relevant screenshots) to your pull request. Screenshots are best-effort: pass or fail comes from each screen's report.

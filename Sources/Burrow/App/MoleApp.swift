@@ -42,6 +42,14 @@ struct MoleApp: App {
         .defaultSize(width: 1240, height: 820)
         .commands { AppCommands(model: model) }
 
+        Window("Software Update", id: UpdateWindow.id) {
+            UpdateWindow()
+                .environment(model)
+        }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
+        .restorationBehavior(.disabled)
+
         MenuBarExtra {
             MenuBarContent()
                 .environment(model)
@@ -98,8 +106,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct AppCommands: Commands {
     let model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") {
+                openWindow(id: UpdateWindow.id)
+                Task { await model.updater.check(userInitiated: true) }
+            }
+            .disabled(model.updater.phase.isBusy)
+        }
         CommandGroup(after: .sidebar) {
             ForEach(Array(Route.allCases.enumerated()), id: \.element) { index, route in
                 Button(route.theme.title) { model.route = route }

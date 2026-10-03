@@ -37,7 +37,12 @@ If you have enabled Touch ID for sudo, macOS shows its own Touch ID prompt first
 - **Supervised prompts.** Several Mole prompts treat end-of-input as "yes". For those runs, the helper owns Mole's input and stops Mole if Burrow goes away, so a crash or force-quit never confirms anything.
 - **Previews are binding.** Clean runs only the configuration you previewed; Purge re-checks just before running.
 - **Trash first.** Burrow prefers the Trash wherever Mole offers it. The analyzer applies Mole's own protected-path rules before moving anything to the Trash.
-- **Minimal networking.** Burrow's only request of its own is an anonymous check of Mole's latest release on the GitHub API (`api.github.com/repos/tw93/mole/releases/latest`). It sends no data about your Mac. Mole contacts GitHub or Homebrew when you update or install it.
+- **Minimal networking.** Burrow makes two kinds of request of its own, both anonymous, and neither sends any data about your Mac:
+  - a check of Mole's latest release on the GitHub API (`api.github.com/repos/tw93/mole/releases/latest`)
+  - a check of Burrow's own releases (`api.github.com/repos/Pimzino/burrow/releases`). It runs at most once a day and can be turned off in Settings → Updates.
+
+  Mole contacts GitHub or Homebrew when you update or install it.
+- **Signed updates.** Burrow installs an update only if the downloaded disk image carries a valid Ed25519 signature from Burrow's release key. That key's public half is built into the app. The app inside the image must also have a valid code signature, the same bundle identifier and the advertised version, and it must be newer than your copy. Anything else is refused and your copy is left untouched. See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Code signing
 

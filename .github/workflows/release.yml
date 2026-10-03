@@ -7,6 +7,11 @@
 # certificate and its private key) and MACOS_CERT_PASSWORD are set, the certificate is imported into a
 # temporary keychain and used for the app and the DMG. Otherwise both are signed ad-hoc.
 # Burrow is not notarized either way; docs/INSTALL.md explains how users open it.
+#
+# In-app updates: the DMG is signed with the Ed25519 key in the BURROW_UPDATE_SIGNING_KEY secret and the
+# signature is published as Burrow-<version>.dmg.sig. Installed copies only install a DMG whose signature
+# matches the BurrowUpdatePublicKey in their Info.plist (docs/RELEASING.md). When Info.plist has a public key
+# the secret is required, and must match it, so a release can never strand existing installs.
 name: Release
 
 on:
@@ -99,6 +104,28 @@ jobs:
           hdiutil verify "build/Burrow-$VERSION.dmg"
           cat "build/Burrow-$VERSION.dmg.sha256"
 
+      - name: Sign the DMG for in-app updates
+        env:
+          BURROW_UPDATE_SIGNING_KEY: ${{ secrets.BURROW_UPDATE_SIGNING_KEY }}
+        run: |
+          DMG="build/Burrow-$VERSION.dmg"
+          PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :BurrowUpdatePublicKey' build/Burrow.app/Contents/Info.plist 2>/dev/null || true)"
+          if [[ -z "$BURROW_UPDATE_SIGNING_KEY" ]]; then
+            if [[ -n "$PUBLIC_KEY" ]]; then
+              echo "::error::Info.plist has BurrowUpdatePublicKey but the BURROW_UPDATE_SIGNING_KEY secret is not set"
+              exit 1
+            fi
+            echo "::warning::No update signing key: installed copies will offer this release as a download only"
+            exit 0
+          fi
+          if [[ "$(swift scripts/update-signing.swift public-key)" != "$PUBLIC_KEY" ]]; then
+            echo "::error::BURROW_UPDATE_SIGNING_KEY does not match BurrowUpdatePublicKey in Resources/Info.plist"
+            exit 1
+          fi
+          swift scripts/update-signing.swift sign "$DMG" > "$DMG.sig"
+          swift scripts/update-signing.swift verify "$DMG" "$DMG.sig" "$PUBLIC_KEY"
+          echo "UPDATE_SIGNATURE=$DMG.sig" >> "$GITHUB_ENV"
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -109,9 +136,12 @@ jobs:
           cat "$RUNNER_TEMP/release-notes.md"
           PRERELEASE=()
           [[ "$VERSION" == *-* ]] && PRERELEASE=(--prerelease)
+          SIGNATURE=()
+          [[ -n "${UPDATE_SIGNATURE:-}" ]] && SIGNATURE=("$UPDATE_SIGNATURE")
           gh release create "$TAG" \
             "build/Burrow-$VERSION.dmg" \
             "build/Burrow-$VERSION.dmg.sha256" \
+            "${SIGNATURE[@]}" \
             --title "Burrow $VERSION" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
             --generate-notes \

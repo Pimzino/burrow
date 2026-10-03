@@ -22,6 +22,7 @@
 	<key>NSDownloadsFolderUsageDescription</key><string>Burrow lets Mole scan Downloads for old installers and leftovers.</string>
 	<key>NSRemovableVolumesUsageDescription</key><string>Burrow lets Mole analyze and clean system metadata on external drives.</string>
 	<key>NSNetworkVolumesUsageDescription</key><string>Burrow's disk analyzer uses Mole to measure folders on network volumes.</string>
+	<key>BurrowUpdatePublicKey</key><string>OiolnV+/hC3Q2aFv7OfvBG5CZ+P35ynH16koXgvpP/E=</string>
 	<key>NSHumanReadableCopyright</key><string>© 2026 Jose Freitas. Burrow is a GUI for the Mole CLI by tw93.</string>
 </dict>
 </plist>

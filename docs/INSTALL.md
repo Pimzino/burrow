@@ -91,6 +91,18 @@ Burrow is a front end: all the actual work is done by the open-source [Mole](htt
   Then click **Check Again** in Burrow. Mole's own install script from its GitHub page also works; Burrow finds `mo` in the usual locations and you can set its path in **Settings → General**.
 - **Updates.** Burrow tells you when a new Mole version is available and can update it from **Settings → Updates**.
 
+## Updating Burrow
+
+Burrow checks its GitHub Releases once a day (you can turn this off, or include pre-releases, in **Settings → Updates**). You can also check any time with **Burrow → Check for Updates…**. When a new version is out, Burrow shows its release notes. **Install and Relaunch** then:
+
+- downloads the new disk image
+- checks that it is signed with Burrow's release key
+- replaces the app in place and reopens it
+
+You don't need to repeat the Gatekeeper steps above, because an update installed this way isn't quarantined. If Burrow lives in a folder that only an administrator can change, macOS asks for an administrator's approval.
+
+In-place updates need Burrow to run from a normal folder such as Applications. They don't work if it runs from the disk image, or from the temporary location macOS uses for apps it hasn't approved yet. In those cases Burrow links to the download instead.
+
 ## Uninstalling Burrow
 
 Quit Burrow (menu bar icon → Quit Burrow) and move `/Applications/Burrow.app` to the Trash. This does not remove Mole. To remove Mole too, use **Settings → Uninstall Mole** first, or run `brew uninstall mole`.

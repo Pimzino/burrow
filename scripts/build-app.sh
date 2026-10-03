@@ -6,6 +6,9 @@
 # Environment:
 #   BURROW_VERSION      sets CFBundleShortVersionString in the bundled Info.plist (a leading "v" is dropped)
 #   BURROW_BUILD        sets CFBundleVersion in the bundled Info.plist
+#   BURROW_UPDATE_PUBLIC_KEY  overrides BurrowUpdatePublicKey (the Ed25519 key updates must be signed with;
+#                       scripts/update-e2e.sh uses a throwaway key)
+#   BURROW_BUNDLE_ID    overrides CFBundleIdentifier (test builds that must not share the real app's settings)
 #   MOLE_SIGN_IDENTITY  codesigning identity (name or SHA-1); "-" forces an ad-hoc signature
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -27,6 +30,12 @@ if [[ -n "${BURROW_VERSION:-}" ]]; then
 fi
 if [[ -n "${BURROW_BUILD:-}" ]]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BURROW_BUILD" "$APP/Contents/Info.plist"
+fi
+if [[ -n "${BURROW_UPDATE_PUBLIC_KEY+set}" ]]; then
+  /usr/libexec/PlistBuddy -c "Set :BurrowUpdatePublicKey $BURROW_UPDATE_PUBLIC_KEY" "$APP/Contents/Info.plist"
+fi
+if [[ -n "${BURROW_BUNDLE_ID:-}" ]]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BURROW_BUNDLE_ID" "$APP/Contents/Info.plist"
 fi
 
 # Brand artwork is rendered by art/brand/build.sh (Blender) and committed, so builds and CI never
