@@ -124,7 +124,7 @@ struct UninstallView: View {
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(store.isLoading || (session?.isActive ?? false))
                 .help("Reload the app list (⌘R)")
@@ -149,7 +149,6 @@ struct UninstallView: View {
             if let error = store.error {
                 ErrorBanner(message: error) { Task { await store.load(service: service) } }
             }
-            stats
             controls
             let apps = filteredApps
             if apps.isEmpty {
@@ -163,9 +162,8 @@ struct UninstallView: View {
             } else {
                 list(apps)
             }
-            InfoBanner(symbol: "sparkles", title: "Already dragged an app to the Trash?",
-                       message: "Clean finds the caches, preferences and support files it left behind.",
-                       tint: FeatureTheme.clean.accent, actionTitle: "Open Clean") { model.route = .clean }
+            Footnote(symbol: "info.circle", text: "Already dragged an app to the Trash? Clean finds the files it left behind.",
+                     actionTitle: "Open Clean") { model.route = .clean }
                 .padding(.bottom, selection.isEmpty ? 0 : 70)
         }
     }
@@ -246,7 +244,7 @@ struct UninstallView: View {
                 Label("Sort: \(sort.title)", systemImage: "arrow.up.arrow.down")
             }
             .menuStyle(.button)
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .fixedSize()
         }
     }
@@ -374,7 +372,7 @@ struct UninstallView: View {
             .animation(.snappy, value: apps.count)
             Button("Clear", systemImage: "xmark") { selection.removeAll() }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .help("Clear selection (Esc)")
             Divider().frame(height: 26)
             Toggle(isOn: $permanent) {
@@ -385,7 +383,7 @@ struct UninstallView: View {
             .fixedSize()
             .help("Delete permanently instead of moving to the Trash. Files cannot be recovered.")
             Button("Preview", systemImage: "eye") { begin(apps, dryRun: true) }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .help("Run Mole in dry-run mode: see every file, remove nothing")
             Button {
                 begin(apps, dryRun: false)
@@ -496,8 +494,6 @@ private struct AppGridCard: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 FileIconView(path: app.app.path, size: 64)
-                    .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
-                    .scaleEffect(hovering ? 1.06 : 1)
                     .padding(.top, 6)
                 Text(app.name)
                     .font(.callout.weight(.semibold))
@@ -522,7 +518,6 @@ private struct AppGridCard: View {
                     .foregroundStyle(selected ? AnyShapeStyle(theme.gradient) : AnyShapeStyle(.tertiary))
                     .opacity(selected || hovering ? 1 : 0)
                     .padding(10)
-                    .symbolEffect(.bounce, value: selected)
             }
             .overlay(alignment: .topTrailing) {
                 if app.source != .app {
@@ -581,7 +576,6 @@ private struct AppListRow: View {
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
                     .foregroundStyle(selected ? AnyShapeStyle(theme.gradient) : AnyShapeStyle(.tertiary))
-                    .symbolEffect(.bounce, value: selected)
                 FileIconView(path: app.app.path, size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(app.name).font(.body.weight(.medium)).lineLimit(1)

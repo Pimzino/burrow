@@ -35,7 +35,7 @@ struct CleanSectionDetailSheet: View {
                 Spacer()
                 Button("Done") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
             }
             .padding(20)
             HStack(spacing: 10) {

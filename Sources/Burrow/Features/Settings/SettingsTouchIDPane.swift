@@ -95,7 +95,7 @@ struct SettingsTouchIDPane: View {
             }
             if let run {
                 Section("Last change") {
-                    RunStatusCard(run: run, theme: .settings, showConsoleInitially: true)
+                    RunStatusCard(run: run, theme: .settings)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
@@ -112,13 +112,22 @@ struct SettingsTouchIDPane: View {
         .sheet(item: $preview) { preview in
             ConfirmSheet(theme: .settings,
                          title: sheetTitle(preview),
-                         message: "This is what Mole will change (dry run output):",
+                         message: "This is what Mole will change:",
                          confirmTitle: preview.enable ? "Turn On" : (state.commentedOut ? "Remove Line" : "Turn Off"),
                          destructive: !preview.enable,
                          onConfirm: { apply(enable: preview.enable) },
                          onCancel: { self.preview = nil }) {
                 VStack(alignment: .leading, spacing: 10) {
-                    ConsoleView(lines: preview.lines, maxHeight: 160)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(preview.lines.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }) { line in
+                            Text(line.text.trimmingCharacters(in: .whitespaces))
+                                .font(.callout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
                     if !preview.enable && state.commentedOut {
                         Label("Mole removes every line mentioning pam_tid.so from \(state.source ?? MolePaths.pamSudoLocal), including the commented-out one. Touch ID stays off; you can then turn it on properly.",
                               systemImage: "text.badge.minus")
@@ -141,11 +150,9 @@ struct SettingsTouchIDPane: View {
                     .fill(LinearGradient(colors: display == .on ? SettingsTab.touchID.colors : [.gray.opacity(0.5), .gray.opacity(0.3)],
                                          startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 72, height: 72)
-                    .shadow(color: (display == .on ? SettingsTab.touchID.colors[0] : .clear).opacity(0.45), radius: 12, y: 4)
                 Image(systemName: "touchid")
                     .font(.system(size: 38, weight: .regular))
                     .foregroundStyle(.white)
-                    .symbolEffect(.bounce, value: state.active)
             }
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 6) {
@@ -169,12 +176,12 @@ struct SettingsTouchIDPane: View {
                     } label: {
                         Label(buttonTitle, systemImage: display == .on ? "xmark.circle" : display == .inactive ? "text.badge.minus" : "touchid")
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.hero(tint: .accentColor))
                     .tint(display == .off ? SettingsTab.touchID.colors[0] : display == .inactive ? .orange : .secondary)
                     .disabled(loadingPreview || run?.state.isRunning == true || !service.isAvailable)
                     if loadingPreview { ProgressView().controlSize(.small) }
                     Button("Refresh", systemImage: "arrow.clockwise") { Task { await refresh() } }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.soft)
                 }
                 .padding(.top, 4)
             }

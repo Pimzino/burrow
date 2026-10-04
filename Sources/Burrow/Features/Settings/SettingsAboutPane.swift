@@ -51,15 +51,15 @@ struct SettingsAboutPane: View {
                 Link(destination: URL(string: "https://github.com/tw93/mole")!) {
                     Label("Mole on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 Link(destination: URL(string: "https://github.com/tw93/mole/releases")!) {
                     Label("Mole Releases", systemImage: "newspaper")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 Link(destination: URL(string: "https://github.com/tw93/mole/blob/main/LICENSE")!) {
                     Label("License", systemImage: "doc.plaintext")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
             }
             Spacer(minLength: 10)
         }

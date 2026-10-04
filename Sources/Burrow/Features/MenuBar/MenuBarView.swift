@@ -204,7 +204,7 @@ struct MenuBarContent: View {
             SettingsLink {
                 Image(systemName: "gearshape")
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .help("Settings")
             .keyboardShortcut(",", modifiers: .command)
             Button {
@@ -212,7 +212,7 @@ struct MenuBarContent: View {
             } label: {
                 Image(systemName: "power")
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .help("Quit Burrow")
             .keyboardShortcut("q", modifiers: .command)
         }

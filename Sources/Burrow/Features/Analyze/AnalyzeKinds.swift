@@ -60,7 +60,7 @@ enum AnalyzeKind: String, CaseIterable, Sendable {
     var symbol: String {
         switch self {
         case .folder: "folder.fill"
-        case .cleanable: "sparkles"
+        case .cleanable: "arrow.triangle.2.circlepath"
         case .app: "app.dashed"
         case .image: "photo.fill"
         case .video: "film.fill"

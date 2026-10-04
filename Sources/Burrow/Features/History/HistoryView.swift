@@ -19,7 +19,7 @@ struct HistoryView: View {
                 EmptyStateView(symbol: "doc.text.magnifyingglass", title: "History unavailable",
                                message: "Mole's history could not be read. The raw logs are still in the logs folder.")
             } else if model.report == nil {
-                ScanningView(theme: theme, title: "Reading Mole's logs…", detail: "mo history --json")
+                ScanningView(theme: theme, title: "Reading Mole's logs…")
                     .padding(.top, 40)
             } else {
                 if case .failed(let message) = model.phase { ErrorBanner(message: message) { reload() } }
@@ -53,7 +53,7 @@ struct HistoryView: View {
                 Label("Logs", systemImage: "doc.text")
             }
             .menuStyle(.button)
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .fixedSize()
             .help("Open Mole's log files")
 
@@ -63,7 +63,7 @@ struct HistoryView: View {
                 Label("Refresh", systemImage: "arrow.clockwise")
                     .symbolEffect(.rotate, value: model.loadedAt)
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .keyboardShortcut("r", modifiers: .command)
             .disabled(model.isLoading)
             .help("Reload history (⌘R)")
@@ -96,9 +96,7 @@ struct HistoryView: View {
         } else {
             SummaryHero(summary: summary, theme: theme)
             if summary.previewSessions > 0 {
-                InfoBanner(symbol: "eye", title: "Previews are logged like real runs",
-                           message: "Mole records dry runs in the same log. \(summary.previewSessions) session\(summary.previewSessions == 1 ? " looks" : "s look") like a preview (no files were changed) and \(summary.previewSessions == 1 ? "is" : "are") marked and left out of the total.",
-                           tint: .secondary)
+                Footnote(symbol: "eye", text: "\(summary.previewSessions) session\(summary.previewSessions == 1 ? " was a preview" : "s were previews") that changed no files. \(summary.previewSessions == 1 ? "It is" : "They are") marked below and left out of the total.")
             }
             sessionsSection(summary.entries).id("sessions")
             DeletionAuditSection(rows: model.rows, theme: theme).id("audit")
@@ -139,7 +137,7 @@ struct HistoryView: View {
                 Button(showAllSessions ? "Show Fewer" : "Show All \(entries.count) Sessions") {
                     withAnimation(.smooth) { showAllSessions.toggle() }
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .frame(maxWidth: .infinity)
             }
         }
@@ -199,18 +197,22 @@ private struct SummaryHero: View {
                             .font(.system(size: 46, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .contentTransition(.numericText())
-                            .foregroundStyle(summary.freedBytes > 0 ? AnyShapeStyle(FeatureTheme.clean.gradient) : AnyShapeStyle(.primary))
+                            .foregroundStyle(summary.freedBytes > 0 ? AnyShapeStyle(FeatureTheme.clean.accent) : AnyShapeStyle(.primary))
                         if summary.previewBytes > 0 {
                             Text("\(ByteFormat.string(summary.previewBytes)) more found in previews")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    HStack(spacing: 10) {
-                        stat("\(summary.sessions)", "Sessions", "clock")
-                        stat("\(summary.items)", "Items", "doc.on.doc")
-                        stat("\(summary.failedTasks)", "Failed tasks", "exclamationmark.triangle",
-                             tint: summary.failedTasks > 0 ? .moleWarn : nil)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(summary.sessions.formatted()) sessions · \(summary.items.formatted()) items")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        if summary.failedTasks > 0 {
+                            Label("\(summary.failedTasks) failed task\(summary.failedTasks == 1 ? "" : "s")", systemImage: "exclamationmark.triangle.fill")
+                                .font(.callout)
+                                .foregroundStyle(Color.moleWarn)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -222,21 +224,6 @@ private struct SummaryHero: View {
         }
     }
 
-    private func stat(_ value: String, _ label: String, _ symbol: String, tint: Color? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Image(systemName: symbol).font(.caption).foregroundStyle(tint ?? theme.accent)
-            Text(value)
-                .font(.system(.title2, design: .rounded).weight(.semibold))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-            Text(label).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 14))
-        .accessibilityElement(children: .combine)
-    }
-
     private var breakdown: some View {
         let data = summary.byCommand
         let total = data.reduce(0) { $0 + $1.count }
@@ -245,7 +232,7 @@ private struct SummaryHero: View {
             Chart(data, id: \.command) { item in
                 SectorMark(angle: .value("Sessions", item.count), innerRadius: .ratio(0.64), angularInset: 2)
                     .cornerRadius(5)
-                    .foregroundStyle(HistoryCommand.theme(for: item.command).gradient)
+                    .foregroundStyle(HistoryCommand.theme(for: item.command).accent)
                     .opacity(highlighted == nil || highlighted == item.command ? 1 : 0.35)
             }
             .chartAngleSelection(value: $selectedCount)
@@ -269,7 +256,7 @@ private struct SummaryHero: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(data, id: \.command) { item in
                     HStack(spacing: 8) {
-                        RoundedRectangle(cornerRadius: 3).fill(HistoryCommand.theme(for: item.command).gradient)
+                        RoundedRectangle(cornerRadius: 3).fill(HistoryCommand.theme(for: item.command).accent)
                             .frame(width: 10, height: 10)
                         Text(HistoryCommand.title(for: item.command)).font(.callout)
                         Spacer(minLength: 12)
@@ -302,10 +289,10 @@ private struct SessionRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            FeatureIcon(theme: entry.theme, size: 38)
-            VStack(alignment: .leading, spacing: 5) {
+            FeatureIcon(theme: entry.theme, size: 32)
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
-                    Text(entry.title).font(.headline)
+                    Text(entry.title).font(.callout.weight(.semibold))
                     if entry.isLikelyPreview {
                         Pill(text: "Preview", symbol: "eye", tint: .secondary)
                             .help("No files were changed in this session. Dry runs are logged like real runs.")
@@ -367,26 +354,18 @@ private struct SessionRow: View {
         return text
     }
 
+    /// What the session did, as one plain line: "148 removed · 34 trashed · 1 skipped".
     @ViewBuilder private var chips: some View {
         let a = entry.session.actions
-        let items: [(Int, String, String, Color)] = [
-            (a?.removed ?? 0, "removed", "trash", .moleBad),
-            (a?.trashed ?? 0, "trashed", "trash.circle", .orange),
-            (a?.rebuilt ?? 0, "rebuilt", "arrow.triangle.2.circlepath", .blue),
-            (a?.skipped ?? 0, "skipped", "forward", .secondary),
-            (a?.failed ?? 0, "failed", "xmark.circle", .moleWarn),
-            (a?.other ?? 0, "other", "ellipsis.circle", .secondary),
+        let items: [(Int, String)] = [
+            (a?.removed ?? 0, "removed"), (a?.trashed ?? 0, "trashed"), (a?.rebuilt ?? 0, "rebuilt"),
+            (a?.skipped ?? 0, "skipped"), (a?.failed ?? 0, "failed"), (a?.other ?? 0, "other"),
+            (entry.deletions.count, "audited"),
         ].filter { $0.0 > 0 }
-        let deletions = entry.deletions.count
-        if !items.isEmpty || deletions > 0 {
-            HStack(spacing: 6) {
-                ForEach(items, id: \.1) { item in
-                    Pill(text: "\(item.0) \(item.1)", symbol: item.2, tint: item.3)
-                }
-                if deletions > 0 {
-                    Pill(text: "\(deletions) audited", symbol: "checklist", tint: .indigo)
-                }
-            }
+        if !items.isEmpty {
+            Text(items.map { "\($0.0.formatted()) \($0.1)" }.joined(separator: " · "))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 }

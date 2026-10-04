@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, touchID, completion, updates, activity, logs, uninstall, about
+    case general, touchID, completion, updates, logs, uninstall, about
     var id: String { rawValue }
 
     var title: String {
@@ -10,7 +10,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .touchID: "Touch ID"
         case .completion: "Completion"
         case .updates: "Updates"
-        case .activity: "Activity"
         case .logs: "Logs"
         case .uninstall: "Uninstall"
         case .about: "About"
@@ -21,9 +20,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .touchID: "touchid"
-        case .completion: "terminal"
+        case .completion: "keyboard"
         case .updates: "arrow.down.circle"
-        case .activity: "waveform.path.ecg"
         case .logs: "doc.text.magnifyingglass"
         case .uninstall: "trash"
         case .about: "info.circle"
@@ -37,7 +35,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .touchID: [Color(red: 1.0, green: 0.30, blue: 0.40), Color(red: 1.0, green: 0.52, blue: 0.45)]
         case .completion: [Color(red: 0.12, green: 0.14, blue: 0.18), Color(red: 0.32, green: 0.36, blue: 0.42)]
         case .updates: [Color(red: 0.25, green: 0.52, blue: 1.0), Color(red: 0.20, green: 0.84, blue: 0.95)]
-        case .activity: [Color(red: 0.36, green: 0.35, blue: 0.95), Color(red: 0.60, green: 0.45, blue: 1.0)]
         case .logs: [Color(red: 0.40, green: 0.48, blue: 0.62), Color(red: 0.55, green: 0.66, blue: 0.80)]
         case .uninstall: [Color(red: 1.0, green: 0.30, blue: 0.35), Color(red: 0.85, green: 0.15, blue: 0.30)]
         case .about: [Color(red: 0.49, green: 0.33, blue: 1.0), Color(red: 0.85, green: 0.40, blue: 0.95)]
@@ -66,7 +63,6 @@ struct SettingsView: View {
         case .touchID: SettingsTouchIDPane()
         case .completion: SettingsCompletionPane()
         case .updates: SettingsUpdatesPane()
-        case .activity: SettingsActivityPane()
         case .logs: SettingsLogsPane()
         case .uninstall: SettingsUninstallPane()
         case .about: SettingsAboutPane()
@@ -92,7 +88,6 @@ struct SettingsPaneHeader: View {
                         .foregroundStyle(.white)
                 }
                 .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
-                .shadow(color: tab.colors[0].opacity(0.35), radius: 6, y: 3)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(tab.title).font(.system(size: 18, weight: .bold, design: .rounded))
@@ -180,7 +175,7 @@ struct SettingsCodeBlock: View {
                 }
             }
             .labelStyle(.iconOnly)
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .controlSize(.small)
             .contentTransition(.symbolEffect(.replace))
             .help("Copy to Clipboard")

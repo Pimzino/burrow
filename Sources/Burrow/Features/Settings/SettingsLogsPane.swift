@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct SettingsLogsPane: View {
-    @State private var lines: [OutputLine] = []
-    @State private var loaded = false
     @State private var sizes: [String: Int64] = [:]
 
     var body: some View {
@@ -13,20 +11,9 @@ struct SettingsLogsPane: View {
                 logButton("Operations", "list.bullet.rectangle", MolePaths.operationsLog)
                 logButton("Deletions", "trash", MolePaths.deletionsLog)
             }
-            HStack {
-                Text("Last 200 lines of operations.log").font(.headline)
-                Spacer()
-                Button("Reload", systemImage: "arrow.clockwise", action: load)
-                    .buttonStyle(.glass)
-                    .keyboardShortcut("r", modifiers: .command)
-            }
-            if loaded && lines.isEmpty {
-                EmptyStateView(symbol: "doc.text", title: "No operations yet",
-                               message: "operations.log is created the first time Mole changes something.")
-                    .frame(maxHeight: .infinity)
-            } else {
-                ConsoleView(lines: lines, maxHeight: .infinity)
-            }
+            Label("The History page shows these records as sessions. The files open in Console.", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -64,23 +51,15 @@ struct SettingsLogsPane: View {
 
     private func load() {
         Task {
-            let result = await Task.detached(priority: .userInitiated) { () -> ([String], [String: Int64]) in
+            sizes = await Task.detached(priority: .userInitiated) { () -> [String: Int64] in
                 var sizes: [String: Int64] = [:]
                 for path in [MolePaths.operationsLog, MolePaths.deletionsLog] {
                     if let attrs = try? FileManager.default.attributesOfItem(atPath: path), let size = attrs[.size] as? NSNumber {
                         sizes[path] = size.int64Value
                     }
                 }
-                guard let data = FileManager.default.contents(atPath: MolePaths.operationsLog) else { return ([], sizes) }
-                // Only decode the tail: the log grows without bound.
-                let tail = data.count > 400_000 ? data.suffix(400_000) : data
-                let text = String(decoding: tail, as: UTF8.self)
-                let all = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-                return (Array(all.suffix(200)), sizes)
+                return sizes
             }.value
-            lines = result.0.enumerated().map { OutputLine(id: $0.offset, stream: .stdout, raw: $0.element) }
-            sizes = result.1
-            loaded = true
         }
     }
 }

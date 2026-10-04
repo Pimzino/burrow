@@ -59,6 +59,22 @@ enum CleanStyle {
         return bytes == 0 ? "0 MB" : ByteFormat.string(bytes)
     }
 
+    /// Mole's "2026-10-03 23:22:22" → "yesterday at 23:22"; leaves unparseable text as is.
+    static func friendlyDate(_ text: String) -> String {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        guard let date = parser.date(from: text) else { return text }
+        let out = DateFormatter()
+        out.doesRelativeDateFormatting = true
+        out.dateStyle = .medium
+        out.timeStyle = .short
+        // "Today at 00:41" reads mid-sentence, so the relative word is lowercased.
+        let text = out.string(from: date)
+        return Calendar.current.isDateInToday(date) || Calendar.current.isDateInYesterday(date)
+            ? text.prefix(1).lowercased() + text.dropFirst() : text
+    }
+
     /// Mole's "92.22GB" → "92.22 GB"; leaves unparseable text as is.
     static func human(_ text: String) -> String {
         guard let bytes = ByteFormat.parse(text) else { return text }
@@ -167,31 +183,4 @@ struct TidyAutomationScroll: ViewModifier {
 
 extension View {
     func tidyAutomationScroll(ready: Bool) -> some View { modifier(TidyAutomationScroll(ready: ready)) }
-}
-
-/// Sparkle burst used by success states.
-struct TidyBurst: View {
-    let colors: [Color]
-    @State private var go = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        ZStack {
-            ForEach(0..<14, id: \.self) { i in
-                let angle = Double(i) / 14 * 2 * .pi
-                Image(systemName: i.isMultiple(of: 3) ? "sparkle" : "circle.fill")
-                    .font(.system(size: i.isMultiple(of: 3) ? 14 : 6, weight: .bold))
-                    .foregroundStyle(colors[i % colors.count])
-                    .offset(x: go ? cos(angle) * 92 : 0, y: go ? sin(angle) * 92 : 0)
-                    .opacity(go ? 0 : 1)
-                    .scaleEffect(go ? 1.2 : 0.3)
-            }
-        }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 1.3)) { go = true }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
 }

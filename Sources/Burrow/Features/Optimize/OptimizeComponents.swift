@@ -1,37 +1,80 @@
 import SwiftUI
 
-// MARK: - Task card
+// MARK: - Task list
 
-struct OptimizeTaskCard: View {
+/// All maintenance tasks as one list: what each does, its latest result, and whether it is included.
+struct OptimizeTaskList: View {
+    let vm: OptimizeModel
+    let theme: FeatureTheme
+    /// Automation aid for screenshots: `-MoleE2EExpand <name>` opens that row.
+    @State private var expanded: Set<String> = Set(UserDefaults.standard.string(forKey: "MoleE2EExpand").map { [$0] } ?? [])
+
+    var body: some View {
+        GlassCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Maintenance tasks").font(.headline)
+                    Spacer()
+                    Text("\(vm.includedTasks.count) of \(vm.tasks.count) included")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                ForEach(vm.tasks) { task in
+                    Divider().opacity(0.5)
+                    OptimizeTaskRow(task: task, vm: vm, theme: theme, expanded: expanded.contains(task.id)) {
+                        withAnimation(.snappy) { expanded.formSymmetricDifference([task.id]) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct OptimizeTaskRow: View {
     let task: OptimizeTask
     let vm: OptimizeModel
     let theme: FeatureTheme
     let expanded: Bool
     let toggleExpanded: () -> Void
-    @State private var hovering = false
 
     var body: some View {
         let included = vm.isIncluded(task)
         let progress = vm.report.tasks[task.id]
         let state = progress?.state ?? .pending
         let lines = progress?.lines ?? []
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(included ? AnyShapeStyle(theme.gradient) : AnyShapeStyle(Color.secondary.opacity(0.35)))
-                    .frame(width: 38, height: 38)
-                    .overlay {
-                        Image(systemName: task.symbol)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(.white)
+        // A task that needs attention shows why without being asked.
+        let open = !lines.isEmpty && (expanded || state == .attention)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                Button(action: toggleExpanded) {
+                    HStack(spacing: 14) {
+                        TidyGlyph(symbol: task.symbol, tint: included ? theme.accent : .secondary, size: 32)
+                        VStack(alignment: .leading, spacing: 1) {
+                            HStack(spacing: 6) {
+                                Text(task.displayName).font(.callout.weight(.semibold)).lineLimit(1)
+                                if task.needsAdmin {
+                                    Image(systemName: "lock.shield.fill").font(.caption).foregroundStyle(.orange)
+                                        .help("Needs administrator access")
+                                }
+                            }
+                            Text(task.note.map { "\(task.summary) · \($0)" } ?? task.summary)
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        stateBadge(state, included: included)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(open ? 90 : 0))
+                            .opacity(lines.isEmpty ? 0 : 1)
                     }
-                    .shadow(color: included ? theme.accent.opacity(0.3) : .clear, radius: 6, y: 3)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(task.displayName).font(.headline).lineLimit(1)
-                    Text(task.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    .contentShape(.rect)
                 }
-                Spacer(minLength: 6)
+                .buttonStyle(.plain)
+                .disabled(lines.isEmpty)
                 Toggle("Include \(task.displayName)", isOn: Binding(get: { included }, set: { vm.setIncluded(task, $0) }))
                     .labelsHidden()
                     .toggleStyle(.switch)
@@ -39,36 +82,22 @@ struct OptimizeTaskCard: View {
                     .disabled(!vm.canEditWhitelist)
                     .help(included ? "Included. Turn off to have Mole skip this task." : "Skipped. Turn on to include it again.")
             }
-            HStack(spacing: 6) {
-                stateBadge(state, included: included)
-                if task.needsAdmin { Pill(text: "Admin", symbol: "lock.shield.fill", tint: .orange) }
-                if let note = task.note { Pill(text: note, tint: .secondary) }
-                Spacer(minLength: 0)
-            }
-            if !lines.isEmpty {
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            if open {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(expanded ? lines : Array(lines.prefix(2))) { line in
-                        OptimizeLineView(line: line)
-                            .font(.caption)
-                    }
-                    if lines.count > 2 {
-                        Button(expanded ? "Show less" : "Show \(lines.count - 2) more", action: toggleExpanded)
-                            .buttonStyle(.borderless)
-                            .font(.caption.weight(.semibold))
+                    ForEach(lines) { line in
+                        OptimizeLineView(line: line).font(.caption)
                     }
                 }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 10))
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .padding(.leading, 66)
+                .padding(.trailing, 20)
+                .padding(.bottom, 12)
+                .transition(.opacity)
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(tint(state).map { .regular.tint($0.opacity(0.12)) } ?? .regular, in: .rect(cornerRadius: Metrics.tileRadius))
-        .opacity(included ? 1 : 0.62)
-        .scaleEffect(hovering ? 1.01 : 1)
-        .onHover { h in withAnimation(.snappy(duration: 0.18)) { hovering = h } }
+        .background(tint(state).map { $0.opacity(0.07) } ?? .clear)
+        .opacity(included ? 1 : 0.6)
         .animation(.smooth, value: state)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(task.displayName), \(included ? "included" : "skipped")")
@@ -126,7 +155,7 @@ struct OptimizeOptionsCard: View {
                 Divider().opacity(0.5)
                 TidyOptionRow(symbol: "checkmark.shield.fill", tint: .green, title: "Exclusions",
                               detail: exclusionText) {
-                    Button("Manage", action: openProtection).buttonStyle(.glass)
+                    Button("Manage", action: openProtection).buttonStyle(.soft)
                 }
             }
         }

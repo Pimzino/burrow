@@ -25,21 +25,6 @@ extension StatusCardHeader where Trailing == EmptyView {
     }
 }
 
-/// Subtle lift on hover for interactive-feeling cards.
-struct StatusHoverLift: ViewModifier {
-    @State private var hovering = false
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(hovering ? 1.012 : 1)
-            .shadow(color: .black.opacity(hovering ? 0.10 : 0), radius: 14, y: 6)
-            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: hovering)
-            .onHover { hovering = $0 }
-    }
-}
-
-extension View {
-    func statusHoverLift() -> some View { modifier(StatusHoverLift()) }
-}
 
 // MARK: - Hero
 
@@ -99,7 +84,8 @@ struct StatusHealthHero: View {
 
     private var hardwareGrid: some View {
         let hw = hardware
-        let items: [(String, String, String)] = [
+        // Rows Mole has no value for are left out rather than shown as a dash.
+        let all: [(String, String, String)] = [
             ("laptopcomputer", "Model", hw?.model.statusNonEmpty ?? "—"),
             ("cpu", "Chip", hw?.cpuModel.statusNonEmpty ?? "—"),
             ("memorychip", "Memory", hw?.totalRam.statusNonEmpty ?? "—"),
@@ -109,11 +95,11 @@ struct StatusHealthHero: View {
             ("display", "Display", hw?.refreshRate.statusNonEmpty ?? "—"),
             ("square.stack.3d.up", "Processes", snapshot.procs.map { "\($0)" } ?? "—"),
         ]
+        let items = all.filter { $0.2 != "—" }
         return Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
-            ForEach(0..<(items.count / 2), id: \.self) { row in
+            ForEach(0..<((items.count + 1) / 2), id: \.self) { row in
                 GridRow {
-                    ForEach(0..<2, id: \.self) { col in
-                        let item = items[row * 2 + col]
+                    ForEach(Array(items[(row * 2)..<min(items.count, row * 2 + 2)]), id: \.1) { item in
                         HStack(spacing: 8) {
                             Image(systemName: item.0)
                                 .font(.system(size: 12, weight: .medium))
@@ -187,7 +173,7 @@ struct StatusMetricTile: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular, in: .rect(cornerRadius: Metrics.tileRadius))
-        .statusHoverLift()
+        
         .accessibilityElement(children: .combine)
     }
 }
@@ -508,7 +494,7 @@ struct StatusBatteryCard: View {
             VStack(alignment: .leading, spacing: 16) {
                 StatusCardHeader(title: "Battery", symbol: StatusFormat.batterySymbol(percent: percent, status: battery.status), tint: tint) {
                     if (battery.status ?? "").lowercased() == "charging" {
-                        Image(systemName: "bolt.fill").foregroundStyle(.yellow).symbolEffect(.pulse)
+                        Image(systemName: "bolt.fill").foregroundStyle(.yellow)
                     }
                 }
                 HStack(spacing: 20) {
@@ -725,7 +711,7 @@ struct StatusProcessesCard: View {
                 if let alerts = snapshot.processAlerts, !alerts.isEmpty {
                     ForEach(alerts) { alert in
                         HStack(spacing: 10) {
-                            Image(systemName: "flame.fill").foregroundStyle(Color.moleBad).symbolEffect(.pulse)
+                            Image(systemName: "flame.fill").foregroundStyle(Color.moleBad)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text("\(alert.name ?? "pid \(alert.pid)") is using \(StatusFormat.percent(alert.cpu, digits: 0)) CPU")
                                     .font(.callout.weight(.semibold))
@@ -733,7 +719,7 @@ struct StatusProcessesCard: View {
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Button("Copy PID") { StatusClipboard.copy("\(alert.pid)") }.buttonStyle(.glass).controlSize(.small)
+                            Button("Copy PID") { StatusClipboard.copy("\(alert.pid)") }.buttonStyle(.soft).controlSize(.small)
                         }
                         .padding(12)
                         .glassEffect(.regular.tint(Color.moleBad.opacity(0.14)), in: .rect(cornerRadius: 14))

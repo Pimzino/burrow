@@ -45,7 +45,7 @@ done
 
 # Settings window: capture every tab (screenshot-only check; nothing is changed).
 if [[ $# -eq 0 || " $* " == *" settings "* ]]; then
-  for tab in general touchID completion updates activity logs uninstall about; do
+  for tab in general touchID completion updates logs uninstall about; do
     echo "▶ settings/$tab"
     open -n "$ROOT/build/Burrow.app" --args -MoleE2ERoute dashboard -MoleE2EOpenSettings YES -settingsTab "$tab"
     sleep 1; PID=$(pgrep -n -f "$BIN -MoleE2ERoute")

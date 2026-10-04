@@ -11,7 +11,7 @@ struct ProtectionView: View {
         FeaturePage(theme: theme) {
             PageHeader(theme: theme) {
                 Button("Reload", systemImage: "arrow.clockwise") { vm.reloadFiles() }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .keyboardShortcut("r", modifiers: .command)
                     .help("Re-read Mole’s config files (⌘R)")
             }
@@ -69,18 +69,6 @@ private struct CleanProtectionTab: View {
     let theme: FeatureTheme
     @State private var confirmReset = false
 
-    /// Splits category cards into two columns of similar height (each row ≈ one item).
-    static func balanced(_ groups: [(category: String, items: [CacheInventoryItem])]) -> [[(category: String, items: [CacheInventoryItem])]] {
-        var cols: [[(category: String, items: [CacheInventoryItem])]] = [[], []]
-        var heights = [0, 0]
-        for g in groups {
-            let i = heights[0] <= heights[1] ? 0 : 1
-            cols[i].append(g)
-            heights[i] += g.items.count + 2
-        }
-        return cols
-    }
-
     var body: some View {
         let protectedCount = vm.inventory.items.filter(vm.isProtected).count
         VStack(alignment: .leading, spacing: Metrics.spacing) {
@@ -89,32 +77,13 @@ private struct CleanProtectionTab: View {
                            message: "\(problem) Mole can’t read it either, so only its safety rules apply. Changes are disabled here so the file isn’t replaced.",
                            tint: .moleBad, actionTitle: "Reveal") { Finder.reveal(MolePaths.cleanWhitelist) }
             } else if vm.cleanFileExists {
-                InfoBanner(symbol: "doc.badge.gearshape.fill", title: "Your whitelist is active",
-                           message: "\(vm.cleanPatterns.count) pattern\(vm.cleanPatterns.count == 1 ? "" : "s") in ~/.config/mole/whitelist replace Mole’s defaults. Safety rules always apply.",
-                           tint: theme.accent, actionTitle: "Restore Defaults") { confirmReset = true }
+                Footnote(symbol: "doc.badge.gearshape", text: "\(vm.cleanPatterns.count) pattern\(vm.cleanPatterns.count == 1 ? "" : "s") in ~/.config/mole/whitelist replace Mole’s defaults. Safety rules always apply.",
+                         actionTitle: "Restore Defaults") { confirmReset = true }
             } else {
-                InfoBanner(symbol: "checkmark.shield.fill", title: "Mole’s default protections are active",
-                           message: "There’s no whitelist file yet. Your first change creates one that includes these defaults, so nothing stops being protected.",
-                           tint: .moleGood)
+                Footnote(symbol: "checkmark.shield", text: "Mole’s default protections are active. Your first change saves a whitelist that keeps these defaults.")
             }
-            HStack(spacing: 14) {
-                StatTile(title: "Protected caches", value: "\(protectedCount)", detail: "Of \(vm.inventory.items.count) known cache locations",
-                         symbol: "checkmark.shield", tint: theme.accent)
-                StatTile(title: "Custom patterns", value: "\(vm.customPatterns.count)", detail: "Any path or glob you add", symbol: "text.badge.plus", tint: .blue)
-                StatTile(title: "Safety rules", value: "\(vm.safetyPatterns.count)", detail: "Always on, can’t be removed", symbol: "lock.fill", tint: .orange)
-            }
-            let columns = Self.balanced(vm.groupedInventory)
-            HStack(alignment: .top, spacing: Metrics.spacing) {
-                ForEach(columns.indices, id: \.self) { c in
-                    VStack(spacing: Metrics.spacing) {
-                        ForEach(columns[c], id: \.category) { group in
-                            InventoryCategoryCard(vm: vm, category: group.category, items: group.items)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-            }
-            .disabled(vm.cleanFileProblem != nil)
+            InventoryList(vm: vm)
+                .disabled(vm.cleanFileProblem != nil)
             CustomPatternsCard(vm: vm, theme: theme)
                 .disabled(vm.cleanFileProblem != nil)
                 .id("protection.custom")
@@ -132,26 +101,67 @@ private struct CleanProtectionTab: View {
     }
 }
 
-private struct InventoryCategoryCard: View {
+/// Every known cache location, grouped by category in one list. Categories open on demand.
+private struct InventoryList: View {
     let vm: ProtectionModel
-    let category: String
-    let items: [CacheInventoryItem]
+    /// Automation aid for screenshots: `-MoleE2EExpand <name>` opens that row.
+    @State private var expanded: Set<String> = Set(UserDefaults.standard.string(forKey: "MoleE2EExpand").map { [$0] } ?? [])
 
     var body: some View {
-        let on = items.filter(vm.isProtected).count
-        GlassCard(padding: 18) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    TidyGlyph(symbol: CleanProtectionInventory.symbol(for: category), tint: FeatureTheme.protection.accent, size: 32)
-                    Text(CleanProtectionInventory.title(for: category)).font(.headline)
+        GlassCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Cache locations").font(.headline)
                     Spacer()
-                    Text("\(on) of \(items.count) protected").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    Text("\(vm.inventory.items.filter(vm.isProtected).count) of \(vm.inventory.items.count) protected")
+                        .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
                 }
-                .padding(.bottom, 2)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                ForEach(vm.groupedInventory, id: \.category) { group in
+                    Divider().opacity(0.5)
+                    category(group.category, items: group.items)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func category(_ category: String, items: [CacheInventoryItem]) -> some View {
+        let on = items.filter(vm.isProtected).count
+        let open = expanded.contains(category)
+        Button {
+            withAnimation(.snappy) { expanded.formSymmetricDifference([category]) }
+        } label: {
+            HStack(spacing: 14) {
+                TidyGlyph(symbol: CleanProtectionInventory.symbol(for: category), tint: FeatureTheme.protection.accent, size: 32)
+                Text(CleanProtectionInventory.title(for: category)).font(.callout.weight(.semibold))
+                Spacer()
+                Text("\(on) of \(items.count) protected")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(on > 0 ? .primary : .secondary)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(open ? 90 : 0))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 11)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .tidyHover(radius: 0)
+        .accessibilityHint(open ? "Hides its cache locations" : "Shows its cache locations")
+        if open {
+            VStack(spacing: 2) {
                 ForEach(items) { item in
                     InventoryRow(vm: vm, item: item)
                 }
             }
+            .padding(.leading, 58)
+            .padding(.trailing, 12)
+            .padding(.bottom, 10)
+            .transition(.opacity)
         }
     }
 }
@@ -290,9 +300,9 @@ private struct PatternEntry: View {
                         submit()
                     }
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 Button("Add", systemImage: "plus", action: submit)
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.hero(.protection))
                     .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             if let error {
@@ -371,9 +381,7 @@ private struct OptimizeExclusionsTab: View {
                            message: "Mole still reads ~/.config/mole/whitelist_checks. Your next change saves these rules to whitelist_optimize, as Mole itself does.",
                            tint: .blue)
             }
-            InfoBanner(symbol: "bolt.badge.checkmark.fill", title: excluded == 0 ? "Every optimization runs" : "\(excluded) optimization\(excluded == 1 ? " is" : "s are") skipped",
-                       message: "Switch a task off to have Mole skip it. Saved to ~/.config/mole/whitelist_optimize, the same file the Optimize screen uses.",
-                       tint: FeatureTheme.optimize.accent)
+            Footnote(symbol: "info.circle", text: "Switch a task off to have Mole skip it. The Optimize screen uses the same list.")
             GlassCard {
                 VStack(alignment: .leading, spacing: 6) {
                     SectionTitle(title: "Tasks", symbol: "checklist", detail: "\(vm.tasks.count - excluded) of \(vm.tasks.count) run")
@@ -435,13 +443,9 @@ private struct PurgePathsTab: View {
                 InfoBanner(symbol: "exclamationmark.lock.fill", title: "Your scan path list can’t be read",
                            message: "\(problem) Changes are disabled here so the file isn’t replaced.", tint: .moleBad)
             } else if vm.usingPurgeDefaults {
-                InfoBanner(symbol: "sparkle.magnifyingglass", title: "Using Mole’s defaults",
-                           message: "No custom scan paths are set. Mole scans the defaults below and may discover and save project folders on its next purge.",
-                           tint: FeatureTheme.purge.accent)
+                Footnote(symbol: "info.circle", text: "No custom scan paths are set. Mole scans the defaults below and may save project folders it discovers on its next purge.")
             } else {
-                InfoBanner(symbol: "folder.badge.gearshape", title: "\(vm.purgeFile.paths.count) custom scan path\(vm.purgeFile.paths.count == 1 ? "" : "s")",
-                           message: "Project Purge looks for build artifacts only inside these folders. Remove them all to go back to Mole’s defaults.",
-                           tint: FeatureTheme.purge.accent)
+                Footnote(symbol: "info.circle", text: "Project Purge looks for build artifacts only inside these folders. Remove them all to go back to Mole’s defaults.")
             }
             GlassCard {
                 VStack(alignment: .leading, spacing: 10) {
@@ -452,7 +456,7 @@ private struct PurgePathsTab: View {
                                 error = vm.addPurgePath(path)
                             }
                         }
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.hero(.protection))
                     }
                     if let error {
                         Label(error, systemImage: "exclamationmark.circle.fill").font(.caption).foregroundStyle(Color.moleBad)
@@ -476,7 +480,7 @@ private struct PurgePathsTab: View {
                                 Text(path.abbreviatingHome).font(.callout.monospaced())
                                 Spacer()
                                 Button("Add", systemImage: "plus") { error = vm.addPurgePath(path) }
-                                    .buttonStyle(.glass)
+                                    .buttonStyle(.soft)
                                     .controlSize(.small)
                             }
                             .padding(.horizontal, 8)

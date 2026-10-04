@@ -7,7 +7,6 @@ struct CleanView: View {
     @State private var vm = CleanModel.shared
     @State private var confirming = false
     @State private var detail: CleanDetailRequest?
-    @State private var showConsole = false
 
     private let theme = FeatureTheme.clean
 
@@ -53,13 +52,13 @@ struct CleanView: View {
         HStack(spacing: 10) {
             if vm.isBusy {
                 Button("Stop", systemImage: "stop.fill") { vm.cancel() }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .keyboardShortcut(".", modifiers: .command)
                     .help("Stop Mole (⌘.)")
             } else {
                 if vm.phase == .scanned || vm.phase == .cleaned {
                     Button("Rescan", systemImage: "arrow.clockwise") { vm.scan(service: service) }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.soft)
                         .keyboardShortcut("r", modifiers: .command)
                         .help("Scan again (⌘R)")
                 }
@@ -73,7 +72,7 @@ struct CleanView: View {
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(!vm.canClean)
                     .help(vm.cleanBlocker ?? "Review and clean (⌘↩)")
-                } else if vm.phase != .cleaned {
+                } else if case .failed = vm.phase {
                     Button {
                         vm.scan(service: service)
                     } label: {
@@ -105,27 +104,33 @@ struct CleanView: View {
             CleanOptionsCard(vm: vm)
         case .scanning, .cleaning:
             CleanProgressHero(vm: vm, theme: theme)
-            if let run = vm.run {
-                RunStatusCard(run: run, theme: theme, headline: vm.phase == .cleaning ? "Mole is cleaning" : "Mole is scanning")
-            }
-            CleanSectionsGrid(report: vm.report, live: true, vm: vm) { detail = $0 }
+            CleanSectionsList(report: vm.report, live: true, vm: vm) { detail = $0 }
         case .scanned:
             let report = vm.scanReport ?? vm.report
-            CleanResultsHero(vm: vm, report: report, theme: theme) { confirming = true }
+            CleanResultsHero(vm: vm, report: report, theme: theme)
             if let blocker = vm.cleanBlocker, report.summary?.alreadyClean != true {
                 InfoBanner(symbol: "eye.trianglebadge.exclamationmark", title: "Preview only", message: blocker, tint: .moleWarn,
                            actionTitle: "Scan Again") { vm.scan(service: service) }
             }
-            CleanNotices(report: report, includeSystem: vm.scannedConfig?.includesSystem ?? vm.includeSystem) { model.route = .protection }
-            CleanSectionsGrid(report: report, live: false, vm: vm) { detail = $0 }
+            CleanNotices(report: report) { model.route = .protection }
+            CleanSectionsList(report: report, live: false, vm: vm,
+                              protection: report.whitelistStatus,
+                              systemSkipped: report.systemSkipped && !(vm.scannedConfig?.includesSystem ?? vm.includeSystem),
+                              openProtection: { model.route = .protection }) { detail = $0 }
                 .id("clean.sections")
             if !report.reviewRows.isEmpty { CleanReviewCard(rows: report.reviewRows) }
             CleanOptionsCard(vm: vm)
         case .cleaned:
             CleanSuccessCard(vm: vm, report: vm.report, theme: theme) { vm.startOver() }
-            CleanSectionsGrid(report: vm.report, live: false, vm: vm) { detail = $0 }
-            if let run = vm.run { RunStatusCard(run: run, theme: theme, headline: "Mole output") }
+            CleanSectionsList(report: vm.report, live: false, vm: vm) { detail = $0 }
         }
+    }
+}
+
+extension CleanReport {
+    /// Mole said it left system-level caches alone because it had no administrator access.
+    var systemSkipped: Bool {
+        notices.contains { $0.contains("need sudo") || $0.contains("System-level cleanup skipped") }
     }
 }
 
@@ -140,44 +145,32 @@ struct CleanIdleHero: View {
     let vm: CleanModel
     let theme: FeatureTheme
     let scan: () -> Void
-    @State private var pulse = false
 
     var body: some View {
-        GlassCard(padding: 32) {
-            HStack(spacing: 32) {
-                ZStack {
-                    Circle().fill(theme.gradient.opacity(0.14)).frame(width: 170, height: 170)
-                        .scaleEffect(pulse ? 1.05 : 0.96)
-                    Circle().strokeBorder(theme.gradient, lineWidth: 2).frame(width: 138, height: 138).opacity(0.5)
-                    FeatureIcon(theme: theme, size: 86)
-                }
-                .onAppear { withAnimation(.easeInOut(duration: 2.4).repeatForever()) { pulse = true } }
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Find space you can safely reclaim")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                    Text("Mole previews caches, logs, browser leftovers and developer junk first. Nothing is deleted until you review the results and confirm.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 12) {
-                        Button(action: scan) {
-                            Label(vm.isExternalMode ? "Scan \(vm.externalVolume?.name ?? "Drive")" : "Scan My Mac", systemImage: "magnifyingglass")
-                        }
-                        .buttonStyle(.hero(theme))
-                        if let date = vm.lastPreviewDate {
-                            Label("Last preview \(date)", systemImage: "clock")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+        GlassCard(padding: 28) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Find space you can safely reclaim")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Text("Mole previews caches, logs, browser leftovers and developer junk first. Nothing is deleted until you review the results and confirm. A scan takes a couple of minutes.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 620, alignment: .leading)
+                HStack(spacing: 12) {
+                    Button(action: scan) {
+                        Label(vm.isExternalMode ? "Scan \(vm.externalVolume?.name ?? "Drive")" : "Scan My Mac", systemImage: "magnifyingglass")
                     }
-                    .padding(.top, 4)
-                    HStack(spacing: 8) {
-                        Pill(text: "Dry run first", symbol: "eye", tint: theme.accent)
-                        Pill(text: "Protected paths honoured", symbol: "checkmark.shield", tint: .blue)
-                        Pill(text: "Takes a couple of minutes", symbol: "timer", tint: .secondary)
+                    .buttonStyle(.hero(theme))
+                    .keyboardShortcut("r", modifiers: .command)
+                    .help("Preview what Mole would clean (⌘R)")
+                    if let date = vm.lastPreviewDate {
+                        Text("Last scanned \(CleanStyle.friendlyDate(date))")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                Spacer(minLength: 0)
+                .padding(.top, 6)
+                .controlSize(.large)
             }
         }
     }
@@ -256,7 +249,7 @@ struct CleanProgressHero: View {
                         .foregroundStyle(.secondary)
                     Text(CleanStyle.size(bytes))
                         .font(.system(size: 46, weight: .bold, design: .rounded))
-                        .foregroundStyle(theme.gradient)
+                        .foregroundStyle(theme.accent)
                         .contentTransition(.numericText(value: Double(bytes)))
                         .animation(.snappy, value: bytes)
                         .monospacedDigit()
@@ -289,11 +282,18 @@ struct CleanResultsHero: View {
     let vm: CleanModel
     let report: CleanReport
     let theme: FeatureTheme
-    let clean: () -> Void
 
     private struct Slice: Identifiable {
         let id: String
         let bytes: Int64
+    }
+
+    static func facts(_ s: CleanReport.Summary?, free: String?) -> String {
+        var parts: [String] = []
+        if let items = s?.items { parts.append("\(items.formatted()) items") }
+        if let c = s?.categories { parts.append("\(c) categories") }
+        if let free { parts.append("\(CleanStyle.human(free)) free now") }
+        return parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -306,7 +306,7 @@ struct CleanResultsHero: View {
             HStack(alignment: .center, spacing: 28) {
                 VStack(alignment: .leading, spacing: 10) {
                     Label(summary?.alreadyClean == true ? "Nothing significant to clean" : vm.canClean ? "Ready to clean" : "Partial preview",
-                          systemImage: summary?.alreadyClean == true ? "checkmark.seal.fill" : vm.canClean ? "sparkles" : "eye.trianglebadge.exclamationmark")
+                          systemImage: summary?.alreadyClean == true ? "checkmark.seal.fill" : vm.canClean ? "checkmark.circle.fill" : "eye.trianglebadge.exclamationmark")
                         .font(.headline)
                         .foregroundStyle(theme.accent)
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -317,32 +317,22 @@ struct CleanResultsHero: View {
                             .font(.system(size: 60, weight: .bold, design: .rounded))
                             .lineLimit(1)
                             .fixedSize()
-                            .foregroundStyle(theme.gradient)
+                            .foregroundStyle(theme.accent)
                             .contentTransition(.numericText(value: Double(bytes)))
                             .monospacedDigit()
                     }
                     Text(vm.scannedConfig?.volume.map { "can be reclaimed from \($0.name)" } ?? (vm.canClean ? "can be reclaimed safely" : "found before the scan stopped"))
                         .font(.title3)
                         .foregroundStyle(.secondary)
-                    HStack(spacing: 10) {
-                        if let items = summary?.items { Pill(text: "\(items.formatted()) items", symbol: "doc.on.doc", tint: theme.accent) }
-                        if let c = summary?.categories { Pill(text: "\(c) categories", symbol: "square.grid.2x2", tint: .blue) }
-                        if let free = summary?.freeSpace ?? report.freeSpaceBefore { Pill(text: "\(CleanStyle.human(free)) free", symbol: "internaldrive", tint: .secondary) }
+                    Text(Self.facts(summary, free: summary?.freeSpace ?? report.freeSpaceBefore))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    if let file = summary?.previewFile {
+                        Button("Open Full List", systemImage: "list.bullet.rectangle") { Finder.open(file) }
+                            .buttonStyle(.soft)
+                            .help("Open Mole's detailed preview file")
+                            .padding(.top, 6)
                     }
-                    .fixedSize()
-                    HStack(spacing: 10) {
-                        Button(action: clean) { Label("Clean…", systemImage: "sparkles") }
-                            .buttonStyle(.hero(theme))
-                            .disabled(!vm.canClean)
-                            .help(vm.cleanBlocker ?? "Review and clean")
-                        if let file = summary?.previewFile {
-                            Button("Full List", systemImage: "list.bullet.rectangle") { Finder.open(file) }
-                                .buttonStyle(.glass)
-                                .help("Open Mole's detailed preview file")
-                        }
-                    }
-                    .fixedSize()
-                    .padding(.top, 6)
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 0)
@@ -353,7 +343,8 @@ struct CleanResultsHero: View {
                             .foregroundStyle(CleanStyle.color(for: slice.id))
                     }
                     .chartLegend(.hidden)
-                    .frame(width: 180, height: 180)
+                    .frame(width: 160, height: 160)
+                    .padding(.trailing, 12)
                     .chartBackground { _ in
                         VStack(spacing: 0) {
                             Text("\(slices.count)").font(.system(size: 30, weight: .bold, design: .rounded))
@@ -361,17 +352,6 @@ struct CleanResultsHero: View {
                         }
                     }
                     .accessibilityLabel("Reclaimable space by category")
-                    VStack(alignment: .leading, spacing: 7) {
-                        ForEach(slices.prefix(6)) { s in
-                            HStack(spacing: 8) {
-                                Circle().fill(CleanStyle.color(for: s.id)).frame(width: 8, height: 8)
-                                Text(s.id).font(.caption).lineLimit(1)
-                                Spacer(minLength: 6)
-                                Text(ByteFormat.string(s.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .frame(width: 190)
                 }
             }
         }
@@ -382,33 +362,13 @@ struct CleanResultsHero: View {
 
 struct CleanNotices: View {
     let report: CleanReport
-    let includeSystem: Bool
     let openProtection: () -> Void
 
     var body: some View {
-        let sudoHint = report.notices.first { $0.contains("need sudo") || $0.contains("System-level cleanup skipped") }
         let warnings = report.notices.filter { $0.hasPrefix("◎ Whitelist") || $0.hasPrefix("Whitelist:") }
-        VStack(spacing: 10) {
-            if sudoHint != nil && !includeSystem {
-                InfoBanner(symbol: "lock.shield", title: "System caches were not included",
-                           message: "Turn on “Include system caches” below to preview and clean them too (requires your password).",
-                           tint: .orange)
-            }
-            if !warnings.isEmpty {
-                InfoBanner(symbol: "exclamationmark.shield", title: "Some protection rules were ignored",
-                           message: warnings.joined(separator: "\n"), tint: .moleWarn, actionTitle: "Protection", action: openProtection)
-            }
-            if let status = report.whitelistStatus {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.shield.fill").foregroundStyle(Color.moleGood)
-                    Text("Protection: \(status)").font(.callout)
-                    Spacer()
-                    Button("Manage", action: openProtection).buttonStyle(.link)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .glassEffect(.regular, in: .capsule)
-            }
+        if !warnings.isEmpty {
+            InfoBanner(symbol: "exclamationmark.shield", title: "Some protection rules were ignored",
+                       message: warnings.joined(separator: "\n"), tint: .moleWarn, actionTitle: "Protection", action: openProtection)
         }
     }
 }

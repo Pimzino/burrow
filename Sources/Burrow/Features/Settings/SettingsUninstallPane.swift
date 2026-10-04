@@ -7,8 +7,6 @@ struct SettingsUninstallPane: View {
     @Environment(AppModel.self) private var model
     @Environment(MoleService.self) private var service
     @State private var preview: MoleRemoval.Preview?
-    /// Raw dry-run output, shown when the preview couldn't be read.
-    @State private var previewOutput: [OutputLine] = []
     @State private var previewError: String?
     @State private var loading = false
     @State private var confirmText = ""
@@ -49,7 +47,7 @@ struct SettingsUninstallPane: View {
             if let run {
                 Section("Uninstall") {
                     if let outcome { outcomeBanner(outcome) }
-                    RunStatusCard(run: run, theme: .uninstall, headline: outcome.map { headline($0) }, showConsoleInitially: true)
+                    RunStatusCard(run: run, theme: .uninstall, headline: outcome.map { headline($0) })
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
@@ -82,13 +80,13 @@ struct SettingsUninstallPane: View {
             }
             HStack {
                 Button("Check Again", systemImage: "arrow.clockwise", action: loadPreview)
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .disabled(loading || isRunning)
                 Spacer()
                 Button(role: .destructive, action: remove) {
                     Label(needsAdmin ? "Uninstall Mole (Admin)…" : "Uninstall Mole", systemImage: "trash.fill")
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.hero(tint: .accentColor))
                 .tint(Color.moleBad)
                 .disabled(!armed)
             }
@@ -115,7 +113,6 @@ struct SettingsUninstallPane: View {
             VStack(alignment: .leading, spacing: 8) {
                 ErrorBanner(message: previewError ?? "Mole's dry run didn't list anything to remove, so uninstalling stays disabled.",
                             retry: { loadPreview() })
-                if !previewOutput.isEmpty { ConsoleView(lines: previewOutput, maxHeight: 140) }
             }
         } else {
             Button {
@@ -123,14 +120,14 @@ struct SettingsUninstallPane: View {
             } label: {
                 Label(loading ? "Checking…" : "Show What Will Be Removed", systemImage: "eye")
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .disabled(loading || !service.isAvailable)
         }
     }
 
     private func previewRow(_ item: MoleRemoval.Item) -> some View {
         let (text, symbol): (String, String) = switch item {
-        case .homebrew: ("Would run: brew uninstall --force mole", "terminal")
+        case .homebrew: ("Would uninstall Mole with Homebrew", "mug")
         case .remove(let p): ("Would remove: \(p.abbreviatingHome)", "xmark.bin")
         case .trash(let p): ("Would move to Trash: \(p.abbreviatingHome)", "trash")
         case .kept(let p): ("Kept for manual review: \(p.abbreviatingHome)", "folder.badge.questionmark")
@@ -138,7 +135,7 @@ struct SettingsUninstallPane: View {
         let admin = item.path.map(adminPaths.contains) ?? false
         return HStack(spacing: 8) {
             Label(text, systemImage: symbol)
-                .font(.callout.monospaced())
+                .font(.callout)
                 .lineLimit(1)
                 .truncationMode(.middle)
             if admin {
@@ -158,9 +155,6 @@ struct SettingsUninstallPane: View {
                 let result = try await service.collect(["remove", "--dry-run"], timeout: 60)
                 let text = result.stdoutString + "\n" + result.stderrString
                 let parsed = MoleRemoval.parsePreview(text)
-                previewOutput = text.split(separator: "\n", omittingEmptySubsequences: false).enumerated().map {
-                    OutputLine(id: $0.offset, stream: .stdout, raw: String($0.element))
-                }
                 withAnimation(.smooth) {
                     previewError = result.succeeded ? nil : "Mole's dry run failed (exit code \(result.exitCode))."
                     preview = parsed
@@ -168,7 +162,6 @@ struct SettingsUninstallPane: View {
                 if previewOK { fieldFocused = true }
             } catch {
                 withAnimation(.smooth) {
-                    previewOutput = []
                     previewError = error.localizedDescription
                     preview = nil
                 }
@@ -242,7 +235,7 @@ struct SettingsUninstallPane: View {
                        message: "Your settings are in the Trash as “mole-config” if you reinstall later.", tint: .moleGood)
         case .partial(let leftovers):
             ErrorBanner(message: leftovers.isEmpty
-                        ? "Mole reported errors while uninstalling, even though it exited normally. Check the output below; some files may still be in place."
+                        ? "Mole reported errors while uninstalling, even though it exited normally. Some files may still be in place."
                         : "Mole reported errors while uninstalling. These are still installed: \(leftovers.map(\.abbreviatingHome).joined(separator: ", ")). Remove them manually or try again.")
         case .declined:
             ErrorBanner(message: "Mole's list of what it would remove changed since the preview, so the app declined its prompt. Review the new preview and confirm again.")

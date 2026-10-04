@@ -31,7 +31,7 @@ struct DashboardView: View {
                 ErrorBanner(message: error) { monitor.restart() }
                 ScanningView(theme: theme, title: "Waiting for Mole…", detail: "Retrying automatically")
             } else {
-                ScanningView(theme: theme, title: "Reading your Mac's vitals…", detail: "Starting mo status")
+                ScanningView(theme: theme, title: "Reading your Mac's vitals…")
                     .padding(.top, 60)
             }
         }
@@ -58,23 +58,14 @@ struct DashboardView: View {
 
     @ViewBuilder private var headerTrailing: some View {
         HStack(spacing: 10) {
-            if monitor.isRunning {
-                HStack(spacing: 6) {
-                    Circle().fill(Color.moleGood).frame(width: 8, height: 8)
-                        .shadow(color: .moleGood, radius: 3)
-                        .symbolEffect(.pulse)
-                    Text("Live · every \(monitor.interval.formatted(.number.precision(.fractionLength(0...1))))s")
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .glassEffect(.regular, in: .capsule)
-                .accessibilityElement(children: .combine)
+            if !monitor.isRunning {
+                Label("Monitoring paused", systemImage: "pause.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             Button("Restart Monitor", systemImage: "arrow.clockwise") { monitor.restart() }
                 .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .keyboardShortcut("r", modifiers: .command)
                 .help("Restart live monitoring (⌘R)")
         }
@@ -148,11 +139,11 @@ struct DashboardView: View {
             StatusMetricTile(title: "CPU", symbol: "cpu", value: StatusFormat.percent(cpu),
                              detail: "Load \(StatusFormat.load(snap.cpu?.load1)) · \(snap.cpu?.logicalCpu ?? 0) cores",
                              tint: Color.usage(cpu) == .moleGood ? theme.accent : Color.usage(cpu),
-                             spark: samples.map { ($0.date, $0.cpu) }, sparkDomain: 0...100)
+                             fraction: cpu / 100)
             StatusMetricTile(title: "Memory", symbol: "memorychip", value: StatusFormat.percent(mem),
                              detail: "\(StatusFormat.memory(snap.memory?.used)) of \(StatusFormat.memory(snap.memory?.total))",
                              tint: Color.usage(mem) == .moleGood ? .pink : Color.usage(mem),
-                             spark: samples.map { ($0.date, $0.memory) }, sparkDomain: 0...100)
+                             fraction: mem / 100)
             StatusMetricTile(title: "Disk", symbol: "internaldrive", value: StatusFormat.percent(disk.map { $0.fraction * 100 }),
                              detail: disk.map { "\(StatusFormat.bytes($0.free)) free" } ?? "—",
                              tint: .indigo, fraction: disk?.fraction)

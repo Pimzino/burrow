@@ -50,18 +50,15 @@ struct AnalyzeDirectorySection: View {
     // MARK: Summary
 
     private var stats: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 14) {
-            StatTile(title: "Total size", value: ByteFormat.string(report.totalSize), detail: "Allocated on disk", symbol: "internaldrive.fill",
-                     tint: FeatureTheme.analyze.accent)
-            StatTile(title: "Items", value: report.entries.count.formatted(),
-                     detail: "\(report.entries.filter(\.isDir).count.formatted()) folders", symbol: "square.stack.3d.up.fill",
-                     tint: Color(red: 0.85, green: 0.40, blue: 0.95))
-            StatTile(title: "Files inside", value: (report.totalFiles ?? 0).formatted(), detail: "In every subfolder", symbol: "doc.on.doc.fill",
-                     tint: Color(red: 0.25, green: 0.52, blue: 1.0))
-            StatTile(title: "Rebuildable", value: cleanableTotal > 0 ? ByteFormat.string(cleanableTotal) : "None",
-                     detail: cleanableTotal > 0 ? "Build and dependency folders" : "No build folders here",
-                     symbol: "sparkles", tint: .moleGood)
-        }
+        let folders = report.entries.filter(\.isDir).count
+        var parts = [ByteFormat.string(report.totalSize),
+                     "\(report.entries.count.formatted()) items (\(folders.formatted()) folders)",
+                     "\((report.totalFiles ?? 0).formatted()) files inside"]
+        if cleanableTotal > 0 { parts.append("\(ByteFormat.string(cleanableTotal)) rebuildable") }
+        return Text(parts.joined(separator: " · "))
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 6)
     }
 
     // MARK: Treemap
@@ -136,7 +133,7 @@ struct AnalyzeDirectorySection: View {
                     }
                     if entries.count > visible.count {
                         Button("Show all \(entries.count.formatted()) items") { withAnimation(.smooth) { showAll = true } }
-                            .buttonStyle(.glass)
+                            .buttonStyle(.soft)
                             .padding(.vertical, 10)
                     }
                 }
@@ -182,7 +179,7 @@ private struct AnalyzeEntryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.displayName).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
-                    if entry.cleanable == true { Pill(text: "Rebuildable", symbol: "sparkles", tint: .moleGood) }
+                    if entry.cleanable == true { Pill(text: "Rebuildable", symbol: "arrow.triangle.2.circlepath", tint: .moleGood) }
                     if entry.isSymlink { Pill(text: "Alias", symbol: "arrow.turn.up.right", tint: .secondary) }
                 }
                 Text(subtitle(kind)).font(.caption).foregroundStyle(.secondary).lineLimit(1)

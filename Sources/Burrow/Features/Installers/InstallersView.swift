@@ -12,7 +12,6 @@ struct InstallersView: View {
     @State private var confirming = false
     @State private var confirmDryRun = false
     @State private var quickLook: URL?
-    @State private var showConsole = false
 
     private let theme = FeatureTheme.installers
 
@@ -24,7 +23,7 @@ struct InstallersView: View {
                 } label: {
                     Label(store.scannedAt == nil ? "Scan" : "Rescan", systemImage: "arrow.clockwise")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(store.isBusy)
                 .help("Scan for installers (⌘R)")
@@ -95,7 +94,6 @@ struct InstallersView: View {
                     .padding(.vertical, 20)
                 }
             } else {
-                stats
                 ForEach(groups, id: \.source) { group in
                     section(group.source, items: group.items)
                 }
@@ -126,7 +124,7 @@ struct InstallersView: View {
                         Text(message).font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button("Dismiss") { store.acknowledge() }.buttonStyle(.glass)
+                    Button("Dismiss") { store.acknowledge() }.buttonStyle(.soft)
                 }
             }
         } else if store.phase == .done, let summary = store.lastSummary {
@@ -145,23 +143,9 @@ struct InstallersView: View {
                         }
                     }
                     Spacer()
-                    Button("Done") { store.acknowledge() }.buttonStyle(.glass)
+                    Button("Done") { store.acknowledge() }.buttonStyle(.soft)
                 }
             }
-        }
-    }
-
-    private var stats: some View {
-        let kinds = Dictionary(grouping: store.items, by: \.kind)
-        let oldest = store.items.compactMap(\.modified).min()
-        return HStack(spacing: 14) {
-            StatTile(title: "Installers", value: "\(store.items.count)",
-                     detail: kinds.keys.sorted().map { ".\($0) \(kinds[$0]!.count)" }.joined(separator: " · "),
-                     symbol: "shippingbox.fill", tint: theme.accent)
-            StatTile(title: "Reclaimable", value: ByteFormat.string(store.totalBytes), detail: "Space you get back",
-                     symbol: "arrow.down.to.line.circle.fill", tint: theme.colors[1])
-            StatTile(title: "Oldest", value: oldest.map { RelativeAge.string($0) } ?? "—", detail: "Last modified",
-                     symbol: "calendar.badge.clock", tint: .purple)
         }
     }
 
@@ -175,28 +159,28 @@ struct InstallersView: View {
         let bytes = items.reduce(Int64(0)) { $0 + $1.bytes }
         let selectable = items.filter(\.isLocated)
         let allSelected = !selectable.isEmpty && selectable.allSatisfy { selection.contains($0.id) }
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: InstallerLocations.symbol(forSource: source))
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(theme.gradient, in: .rect(cornerRadius: 7))
-                Text(source).font(.title3.weight(.semibold))
-                Text("\(items.count) · \(ByteFormat.string(bytes))")
-                    .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
-                Spacer()
-                Button(allSelected ? "Deselect All" : "Select All") {
-                    withAnimation(.snappy) {
-                        if allSelected { selection.subtract(selectable.map(\.id)) } else { selection.formUnion(selectable.map(\.id)) }
+        return GlassCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: InstallerLocations.symbol(forSource: source))
+                        .foregroundStyle(theme.accent)
+                    Text(source).font(.headline)
+                    Text("\(items.count) · \(ByteFormat.string(bytes))")
+                        .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(allSelected ? "Deselect All" : "Select All") {
+                        withAnimation(.snappy) {
+                            if allSelected { selection.subtract(selectable.map(\.id)) } else { selection.formUnion(selectable.map(\.id)) }
+                        }
                     }
+                    .buttonStyle(.soft)
+                    .controlSize(.small)
+                    .disabled(selectable.isEmpty)
                 }
-                .buttonStyle(.glass)
-                .controlSize(.small)
-                .disabled(selectable.isEmpty)
-            }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14)], spacing: 14) {
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
                 ForEach(items) { item in
+                    Divider().opacity(0.5)
                     InstallerCard(item: item, selected: selection.contains(item.id), theme: theme) {
                         guard item.isLocated else { return }
                         withAnimation(.snappy(duration: 0.2)) {
@@ -233,7 +217,7 @@ struct InstallersView: View {
             }
             .animation(.snappy, value: items.count)
             Button("Clear", systemImage: "xmark") { selection.removeAll() }
-                .labelStyle(.iconOnly).buttonStyle(.glass)
+                .labelStyle(.iconOnly).buttonStyle(.soft)
             Divider().frame(height: 26)
             Toggle("Move to Trash", isOn: $moveToTrash)
                 .toggleStyle(.switch).controlSize(.small).fixedSize()
@@ -242,7 +226,7 @@ struct InstallersView: View {
                 confirmDryRun = true
                 confirming = true
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .help("Drive Mole's selector in dry-run mode without deleting anything")
             Button {
                 confirmDryRun = false
@@ -368,56 +352,45 @@ private struct InstallerCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                ZStack(alignment: .bottomTrailing) {
-                    if let path = item.path {
-                        FileIconView(path: path, size: 46)
-                    } else {
-                        Image(systemName: item.kindSymbol).font(.system(size: 30)).foregroundStyle(theme.gradient)
-                            .frame(width: 46, height: 46)
-                    }
+                Image(systemName: !item.isLocated ? "nosign" : selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(selected ? AnyShapeStyle(theme.gradient) : AnyShapeStyle(.tertiary))
+                if let path = item.path {
+                    FileIconView(path: path, size: 32)
+                } else {
+                    Image(systemName: item.kindSymbol).font(.system(size: 20)).foregroundStyle(theme.accent)
+                        .frame(width: 32, height: 32)
                 }
-                .scaleEffect(hovering ? 1.06 : 1)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(item.displayName)
                         .font(.callout.weight(.semibold))
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .help(item.displayName)
-                    HStack(spacing: 6) {
-                        Text(".\(item.kind)")
-                            .font(.caption2.weight(.bold).monospaced())
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .foregroundStyle(.white)
-                            .background(kindColor, in: .capsule)
-                        if !item.isLocated {
-                            Label("Location unclear", systemImage: "questionmark.folder")
-                                .font(.caption).foregroundStyle(Color.moleWarn).lineLimit(1)
-                        } else if let modified = item.modified {
-                            Text(RelativeAge.string(modified)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
+                    if !item.isLocated {
+                        Text("Location unclear · remove it in Finder").font(.caption).foregroundStyle(Color.moleWarn).lineLimit(1)
+                    } else if let path = item.path {
+                        Text(MoleHomeDir.abbreviate(path)).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     }
                 }
-                Spacer(minLength: 4)
-                VStack(alignment: .trailing, spacing: 6) {
-                    Image(systemName: !item.isLocated ? "nosign" : selected ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(selected ? AnyShapeStyle(theme.gradient) : AnyShapeStyle(.tertiary))
-                        .symbolEffect(.bounce, value: selected)
-                    Text(ByteFormat.string(item.bytes))
-                        .font(.system(.body, design: .rounded).weight(.semibold))
-                        .monospacedDigit()
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(".\(item.kind)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(kindColor)
+                    .frame(width: 48, alignment: .leading)
+                Text(item.modified.map { RelativeAge.string($0) } ?? "—")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .frame(width: 110, alignment: .leading)
+                Text(ByteFormat.string(item.bytes))
+                    .font(.system(.body, design: .rounded).weight(.semibold))
+                    .monospacedDigit()
+                    .frame(width: 92, alignment: .trailing)
             }
-            .padding(14)
-            .contentShape(.rect(cornerRadius: Metrics.tileRadius))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 9)
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .glassEffect(selected ? .regular.tint(theme.accent.opacity(0.2)).interactive() : .regular.interactive(),
-                     in: .rect(cornerRadius: Metrics.tileRadius))
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.tileRadius, style: .continuous)
-                .strokeBorder(theme.gradient, lineWidth: selected ? 2 : 0)
-        }
+        .background(selected ? theme.accent.opacity(0.12) : hovering ? Color.primary.opacity(0.05) : .clear)
         .opacity(item.isLocated ? 1 : 0.7)
         .help(item.isLocated ? item.path.map { MoleHomeDir.abbreviate($0) } ?? item.displayName
               : "Several files look like this one (same name and size), or it could not be found on disk, so it can't be removed here. Remove it in Finder.")

@@ -116,11 +116,11 @@ struct SettingsCompletionPane: View {
                 HStack {
                     Spacer()
                     Button("Install Completion…", systemImage: "square.and.arrow.down") { confirming = true }
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.hero(tint: .accentColor))
                         .disabled(!canInstall || run?.state.isRunning == true)
                 }
                 if let run {
-                    RunStatusCard(run: run, theme: .settings, showConsoleInitially: true)
+                    RunStatusCard(run: run, theme: .settings)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }

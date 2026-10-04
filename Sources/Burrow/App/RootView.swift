@@ -124,7 +124,7 @@ private struct Sidebar: View {
                 Button {
                     openWindow(id: UpdateWindow.id)
                 } label: {
-                    Label("Burrow \(release.version.description) available", systemImage: "sparkles")
+                    Label("Burrow \(release.version.description) available", systemImage: "arrow.down.circle.fill")
                         .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.plain)
@@ -163,7 +163,7 @@ struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(MoleService.self) private var service
     @State private var install: CommandRun?
-    @State private var installLines: [OutputLine] = []
+    @State private var installError: String?
     @State private var running = false
 
     var body: some View {
@@ -181,19 +181,16 @@ struct OnboardingView: View {
                 }
                 GlassCard {
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Install with Homebrew", systemImage: "terminal").font(.headline)
-                        Text("brew install mole")
-                            .font(.system(.body, design: .monospaced))
-                            .padding(10)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(.black.opacity(0.2), in: .rect(cornerRadius: 10))
-                            .textSelection(.enabled)
+                        Label("Install with Homebrew", systemImage: "shippingbox").font(.headline)
+                        Text("Burrow installs Mole for you with Homebrew. It takes about a minute.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
                         HStack {
                             Button(running ? "Installing…" : "Install Now") { installWithBrew() }
                                 .buttonStyle(.hero(.clean))
                                 .disabled(running || brewPath == nil)
                             Button("Check Again") { Task { await model.relocate() } }
-                                .buttonStyle(.glass)
+                                .buttonStyle(.soft)
                             Spacer()
                             Link("Mole on GitHub", destination: URL(string: "https://github.com/tw93/mole")!)
                         }
@@ -201,8 +198,13 @@ struct OnboardingView: View {
                             Text("Homebrew was not found. Install it from brew.sh, or use Mole's install script.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
-                        if !installLines.isEmpty {
-                            ConsoleView(lines: installLines, maxHeight: 200)
+                        if running {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text("Installing Mole…").font(.callout).foregroundStyle(.secondary)
+                            }
+                        } else if let installError {
+                            ErrorBanner(message: installError)
                         }
                     }
                 }
@@ -221,19 +223,21 @@ struct OnboardingView: View {
     private func installWithBrew() {
         guard let brewPath else { return }
         running = true
-        installLines = []
+        installError = nil
         Task {
             do {
                 let process = try Subprocess(executable: brewPath, arguments: ["install", "mole"],
                                              environment: MoleLocator.environment(), stdinOpen: false)
+                var last = ""
                 for await event in process.events {
-                    if case .line(let line) = event { installLines.append(line) }
+                    if case .line(let line) = event, !line.text.trimmingCharacters(in: .whitespaces).isEmpty { last = line.text }
                 }
+                await model.relocate()
+                if !service.isAvailable { installError = "Homebrew couldn’t install Mole. \(last)" }
             } catch {
-                installLines.append(OutputLine(id: -1, stream: .stderr, raw: error.localizedDescription))
+                installError = error.localizedDescription
             }
             running = false
-            await model.relocate()
         }
     }
 }

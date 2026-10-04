@@ -55,12 +55,12 @@ struct SettingsUpdatesPane: View {
                 }
                 HStack {
                     Button("Check Now", systemImage: "arrow.clockwise", action: check)
-                        .buttonStyle(.glass)
+                        .buttonStyle(.soft)
                         .disabled(checking)
                         .keyboardShortcut("r", modifiers: .command)
                     Spacer()
                     Button("Update Now…", systemImage: "arrow.down.circle.fill") { confirming = true }
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.hero(tint: .accentColor))
                         .disabled(run?.state.isRunning == true || !service.isAvailable || (model.availableUpdate == nil && !force && !nightly))
                 }
             }
@@ -84,7 +84,7 @@ struct SettingsUpdatesPane: View {
             }
             if let run {
                 Section("Update") {
-                    RunStatusCard(run: run, theme: .dashboard, showConsoleInitially: true)
+                    RunStatusCard(run: run, theme: .dashboard)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
@@ -200,7 +200,7 @@ private struct BurrowUpdateSection: View {
                     openWindow(id: UpdateWindow.id)
                     if updater.newer == nil { Task { await updater.check(userInitiated: true) } }
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .disabled(updater.phase.isBusy)
             }
         }

@@ -1,41 +1,20 @@
 import AppKit
 import SwiftUI
 
-/// Animated success / warning badge used when a run finishes.
+/// Success / warning badge shown when a run finishes.
 struct ResultBurst: View {
     enum Style { case success, warning, info }
     let style: Style
     let theme: FeatureTheme
     var size: CGFloat = 64
-    @State private var appeared = false
 
     var body: some View {
-        ZStack {
-            ForEach(0..<2) { i in
-                Circle()
-                    .stroke(tint.opacity(0.5), lineWidth: 2)
-                    .frame(width: size, height: size)
-                    .scaleEffect(appeared ? 1.7 + CGFloat(i) * 0.35 : 0.8)
-                    .opacity(appeared ? 0 : 0.8)
-                    .animation(.easeOut(duration: 1.1).delay(Double(i) * 0.18), value: appeared)
-            }
-            Circle()
-                .fill(style == .success ? AnyShapeStyle(LinearGradient(colors: [.moleGood, Color(red: 0.2, green: 0.85, blue: 0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                      : style == .warning ? AnyShapeStyle(Color.moleWarn.gradient) : AnyShapeStyle(theme.gradient))
-                .frame(width: size, height: size)
-                .shadow(color: tint.opacity(0.45), radius: 12, y: 4)
-                .scaleEffect(appeared ? 1 : 0.4)
-                .animation(.spring(response: 0.45, dampingFraction: 0.6), value: appeared)
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.46, weight: .bold))
-                .foregroundStyle(.white)
-                .symbolEffect(.bounce, value: appeared)
-                .scaleEffect(appeared ? 1 : 0.2)
-                .animation(.spring(response: 0.5, dampingFraction: 0.55).delay(0.08), value: appeared)
-        }
-        .frame(width: size * 1.6, height: size * 1.6)
-        .onAppear { appeared = true }
-        .accessibilityHidden(true)
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.46, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(tint, in: .circle)
+            .accessibilityHidden(true)
     }
 
     private var tint: Color {
@@ -65,7 +44,6 @@ struct FlowProgressCard: View {
     var currentStep = 0
     var cancelTitle: String? = "Cancel"
     var onCancel: (() -> Void)? = nil
-    @State private var showConsole = false
 
     var body: some View {
         GlassCard(tint: theme.accent) {
@@ -96,16 +74,10 @@ struct FlowProgressCard: View {
                                 .font(.callout.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
-                        Button {
-                            withAnimation(.snappy) { showConsole.toggle() }
-                        } label: { Image(systemName: "terminal") }
-                        .buttonStyle(.glass)
-                        .help("Show Mole output")
-                        .accessibilityLabel("Show Mole output")
                     }
                     if let cancelTitle, let onCancel {
                         Button(cancelTitle, role: .cancel, action: onCancel)
-                            .buttonStyle(.glass)
+                            .buttonStyle(.soft)
                             .keyboardShortcut(.cancelAction)
                     }
                 }
@@ -115,7 +87,6 @@ struct FlowProgressCard: View {
                             HStack(spacing: 6) {
                                 Image(systemName: index < currentStep ? "checkmark.circle.fill" : index == currentStep ? "circle.dotted" : "circle")
                                     .foregroundStyle(index < currentStep ? AnyShapeStyle(Color.moleGood) : index == currentStep ? AnyShapeStyle(theme.accent) : AnyShapeStyle(.tertiary))
-                                    .symbolEffect(.pulse, isActive: index == currentStep)
                                 Text(step)
                                     .font(.caption.weight(index == currentStep ? .semibold : .regular))
                                     .foregroundStyle(index <= currentStep ? .primary : .secondary)
@@ -127,10 +98,6 @@ struct FlowProgressCard: View {
                         }
                     }
                     .animation(.smooth, value: currentStep)
-                }
-                if showConsole, let run {
-                    ConsoleView(lines: run.lines, maxHeight: 200)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
         }

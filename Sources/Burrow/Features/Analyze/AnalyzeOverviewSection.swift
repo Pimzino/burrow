@@ -160,7 +160,6 @@ private struct AnalyzeLocationCard: View {
                         .foregroundStyle(.white)
                         .frame(width: 38, height: 38)
                         .background(style.color.gradient, in: .rect(cornerRadius: 11, style: .continuous))
-                        .shadow(color: style.color.opacity(0.4), radius: 6, y: 3)
                     Spacer()
                     Image(systemName: "arrow.up.right")
                         .font(.callout.weight(.semibold))
@@ -189,7 +188,6 @@ private struct AnalyzeLocationCard: View {
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.tint(style.color.opacity(hovering ? 0.14 : 0.05)).interactive(), in: .rect(cornerRadius: Metrics.tileRadius))
-        .scaleEffect(hovering ? 1.015 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: hovering)
         .onHover { hovering = $0 }
         .contextMenu { AnalyzeItemMenu(path: entry.path, size: entry.size, isDir: true, actions: actions, allowTrash: false) }
@@ -217,7 +215,7 @@ private struct AnalyzeInsightRow: View {
                 HStack(spacing: 8) {
                     Text(entry.name).font(.callout.weight(.semibold))
                     if insight.cleanable {
-                        Pill(text: "Clean can help", symbol: "sparkles", tint: .moleGood)
+                        Pill(text: "Clean can help", tint: .moleGood)
                     }
                 }
                 Text(insight.explanation)
@@ -242,7 +240,7 @@ private struct AnalyzeInsightRow: View {
                         .help("Go to Clean")
                 }
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .frame(width: 128, alignment: .trailing)
         }
         .padding(.horizontal, 12)
@@ -305,7 +303,7 @@ private struct FlowChips: View {
                     Label(pick.0, systemImage: pick.1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .contextMenu { AnalyzeItemMenu(path: pick.2.expandingTilde, size: 0, isDir: true, actions: actions, allowTrash: false) }
                 .help(pick.2)
             }

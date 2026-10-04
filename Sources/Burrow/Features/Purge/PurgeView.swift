@@ -1,5 +1,4 @@
 import AppKit
-import Charts
 import SwiftUI
 
 struct PurgeView: View {
@@ -16,21 +15,28 @@ struct PurgeView: View {
         FeaturePage(theme: theme) {
             PageHeader(theme: theme, subtitle: subtitle) {
                 HStack(spacing: 12) {
-                    Toggle("Include empty folders", isOn: $store.includeEmpty)
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .fixedSize()
-                        .disabled(store.isBusy)
-                        .help("Also list artifact folders that are empty (--include-empty)")
                     Button {
                         Task { await store.runScan(service: service) }
                     } label: {
                         Label(store.scannedAt == nil ? "Scan" : "Rescan", systemImage: "arrow.clockwise")
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
+                    .fixedSize()
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(store.isBusy)
                     .help("Preview what Mole would purge (⌘R)")
+                    if store.phase == .ready && !store.artifacts.isEmpty {
+                        Button {
+                            confirming = true
+                        } label: {
+                            Label("Purge…", systemImage: "hammer.fill").fixedSize()
+                        }
+                        .buttonStyle(.hero(theme))
+                        .fixedSize()
+                        .keyboardShortcut(.delete, modifiers: .command)
+                        .disabled(!store.canPurge)
+                        .help(store.staleReason ?? (store.purgeable.isEmpty ? "Nothing Mole would remove" : "Review and remove every eligible artifact (⌘⌫)"))
+                    }
                 }
             }
         } content: {
@@ -70,7 +76,7 @@ struct PurgeView: View {
                 VStack(spacing: 6) {
                     ScanningView(theme: theme, title: "Scanning your projects",
                                  detail: store.currentRoot.map { "Looking in \(MoleHomeDir.abbreviate($0))" } ?? "Finding project folders…")
-                    Button("Stop") { store.cancelScan() }.buttonStyle(.glass)
+                    Button("Stop") { store.cancelScan() }.buttonStyle(.soft)
                 }
                 .padding(.bottom, 12)
             }
@@ -79,13 +85,13 @@ struct PurgeView: View {
                 VStack(spacing: 6) {
                     ScanningView(theme: theme, title: "Checking the list one last time",
                                  detail: "Mole purges whatever is eligible when it runs, so the app confirms nothing new has appeared since you reviewed it.")
-                    Button("Stop") { store.cancelVerify() }.buttonStyle(.glass)
+                    Button("Stop") { store.cancelVerify() }.buttonStyle(.soft)
                 }
                 .padding(.bottom, 12)
             }
         case .purging:
             FlowProgressCard(theme: theme, title: "Purging project artifacts…",
-                             detail: "Mole removes each eligible folder and re-checks it just before deleting. Per-item progress is not reported without a terminal.",
+                             detail: "Mole removes each eligible folder and re-checks it just before deleting. This can take a minute.",
                              run: store.purgeRun, cancelTitle: nil)
         case .failed(let message):
             ErrorBanner(message: message) { Task { await store.runScan(service: service) } }
@@ -97,6 +103,7 @@ struct PurgeView: View {
 
     @ViewBuilder
     private var ready: some View {
+        @Bindable var store = store
         purgeResultCard
         ForEach(store.scan.failures, id: \.self) { failure in
             InfoBanner(symbol: "lock.trianglebadge.exclamationmark.fill",
@@ -122,13 +129,19 @@ struct PurgeView: View {
                         .font(.title3.weight(.semibold))
                     Text("Artifacts in projects you used in the last 7 days are always kept.")
                         .foregroundStyle(.secondary)
+                    Toggle("Include empty folders", isOn: $store.includeEmpty)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .fixedSize()
+                        .disabled(store.isBusy)
+                        .padding(.top, 6)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 18)
             }
         } else {
             overview
-            ForEach(store.projects) { project in projectCard(project) }
+            projectList
         }
         recentNote
         protectedSection
@@ -136,15 +149,19 @@ struct PurgeView: View {
     }
 
     private var overview: some View {
-        HStack(alignment: .top, spacing: 14) {
-            GlassCard {
-                VStack(alignment: .leading, spacing: 10) {
+        let types = Array(store.byType.prefix(6))
+        let maxBytes = max(1, types.map(\.bytes).max() ?? 1)
+        return GlassCard(padding: 28) {
+            HStack(alignment: .center, spacing: 36) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Reclaimable").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
                     Text(ByteFormat.string(store.totalBytes))
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
-                        .foregroundStyle(theme.gradient)
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .foregroundStyle(theme.accent)
                         .contentTransition(.numericText())
-                    Text("\(store.artifacts.count) artifacts · \(store.projects.count) projects")
+                        .lineLimit(1)
+                        .fixedSize()
+                    Text("\(store.artifacts.count) artifacts in \(store.projects.count) projects")
                         .foregroundStyle(.secondary)
                     if let unmeasured = store.scan.summary?.unmeasured, unmeasured > 0 {
                         Text("+ \(unmeasured) unmeasured").font(.caption).foregroundStyle(.secondary)
@@ -153,75 +170,86 @@ struct PurgeView: View {
                         Label("\(store.cloudCount) in cloud storage \(store.cloudCount == 1 ? "is" : "are") skipped", systemImage: "icloud")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Spacer(minLength: 6)
-                    Button {
-                        confirming = true
-                    } label: {
-                        Label("Purge All Eligible", systemImage: "hammer.fill")
-                    }
-                    .buttonStyle(.hero(theme))
-                    .keyboardShortcut(.delete, modifiers: .command)
-                    .disabled(!store.canPurge)
-                    .help(store.staleReason ?? (store.purgeable.isEmpty ? "Nothing Mole would remove" : "Remove every artifact listed below (⌘⌫)"))
                 }
-            }
-            .frame(width: 300)
-            GlassCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle(title: "By artifact type", symbol: "chart.bar.xaxis")
-                    Chart(store.byType.prefix(8), id: \.type) { entry in
-                        BarMark(x: .value("Size", entry.bytes), y: .value("Type", entry.type))
-                            .foregroundStyle(theme.gradient)
-                            .cornerRadius(6)
-                            .annotation(position: .trailing, alignment: .leading) {
-                                Text(ByteFormat.string(entry.bytes)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                            }
-                    }
-                    .chartXAxis(.hidden)
-                    .chartYAxis {
-                        AxisMarks(position: .leading) { value in
-                            AxisValueLabel {
-                                if let type = value.as(String.self) {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: PurgeTypes.symbol(for: type)).foregroundStyle(theme.accent)
-                                        Text(type).lineLimit(1)
-                                    }
-                                    .font(.callout)
-                                    .frame(width: 130, alignment: .leading)
-                                }
-                            }
+                .layoutPriority(1)
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(types, id: \.type) { entry in
+                        HStack(spacing: 10) {
+                            Image(systemName: PurgeTypes.symbol(for: entry.type))
+                                .foregroundStyle(theme.accent)
+                                .frame(width: 18)
+                            Text(entry.type).font(.callout).lineLimit(1)
+                                .frame(width: 120, alignment: .leading)
+                            CapsuleBar(fraction: Double(entry.bytes) / Double(maxBytes), tint: theme.accent, height: 6)
+                            Text(ByteFormat.string(entry.bytes))
+                                .font(.callout.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 80, alignment: .trailing)
                         }
                     }
-                    .frame(height: CGFloat(max(2, min(8, store.byType.count))) * 34)
-                    .padding(.trailing, 60)
+                }
+                .frame(maxWidth: 520)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .accessibilityLabel("Reclaimable space by artifact type")
+            }
+        }
+    }
+
+    /// Every project with something to purge, largest first, in one list.
+    private var projectList: some View {
+        @Bindable var store = store
+        return GlassCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Projects").font(.headline)
+                    Spacer()
+                    Text("\(store.projects.count) · largest first").font(.subheadline).foregroundStyle(.secondary)
+                    Toggle("Include empty folders", isOn: $store.includeEmpty)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .font(.subheadline)
+                        .fixedSize()
+                        .disabled(store.isBusy)
+                        .padding(.leading, 12)
+                        .help("Also list artifact folders that are empty, on the next scan")
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                ForEach(store.projects.sorted { $0.bytes > $1.bytes }) { project in
+                    Divider().opacity(0.5)
+                    projectRow(project)
                 }
             }
         }
     }
 
-    private func projectCard(_ project: PurgeProject) -> some View {
-        GlassCard(padding: 16) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 12) {
-                    FileIconView(path: MoleHomeDir.expand(project.displayPath), size: 36)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(project.name).font(.headline)
-                        Text(project.displayPath).font(.caption).foregroundStyle(.secondary)
-                            .lineLimit(1).truncationMode(.middle)
-                    }
-                    Spacer()
-                    Text(ByteFormat.string(project.bytes))
-                        .font(.system(.title3, design: .rounded).weight(.bold))
-                        .monospacedDigit()
-                }
-                .contextMenu {
-                    Button("Reveal in Finder", systemImage: "folder") { Finder.reveal(MoleHomeDir.expand(project.displayPath)) }
-                    Button("Copy Path", systemImage: "doc.on.doc") { copy(MoleHomeDir.expand(project.displayPath)) }
-                }
-                ChipFlowLayout(spacing: 8) {
-                    ForEach(project.artifacts) { artifact in artifactChip(artifact) }
-                }
+    private func projectRow(_ project: PurgeProject) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: "folder.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.accent)
+                .frame(width: 32, height: 32)
+                .background(theme.accent.opacity(0.16), in: .circle)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(project.name).font(.callout.weight(.semibold)).lineLimit(1)
+                Text(project.displayPath).font(.caption).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
             }
+            .frame(width: 220, alignment: .leading)
+            ChipFlowLayout(spacing: 6) {
+                ForEach(project.artifacts) { artifact in artifactChip(artifact) }
+            }
+            Text(ByteFormat.string(project.bytes))
+                .font(.system(.body, design: .rounded).weight(.semibold))
+                .monospacedDigit()
+                .frame(width: 92, alignment: .trailing)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .contentShape(.rect)
+        .contextMenu {
+            Button("Reveal in Finder", systemImage: "folder") { Finder.reveal(MoleHomeDir.expand(project.displayPath)) }
+            Button("Copy Path", systemImage: "doc.on.doc") { copy(MoleHomeDir.expand(project.displayPath)) }
         }
     }
 
@@ -241,27 +269,24 @@ struct PurgeView: View {
             HStack(spacing: 6) {
                 Image(systemName: isProtected ? "lock.fill" : PurgeTypes.symbol(for: artifact.type))
                     .foregroundStyle(isProtected ? AnyShapeStyle(Color.moleGood) : AnyShapeStyle(theme.gradient))
-                Text(artifact.type).font(.callout.weight(.medium))
+                Text(artifact.type).font(.caption.weight(.medium))
                 Text(ByteFormat.parse(artifact.size).map { ByteFormat.string($0) } ?? artifact.size)
-                    .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 if artifact.isCloud { Image(systemName: "icloud").foregroundStyle(.secondary) }
             }
-            .padding(.horizontal, 12).padding(.vertical, 7)
+            .padding(.horizontal, 9).padding(.vertical, 4)
+            .background(isProtected ? AnyShapeStyle(Color.moleGood.opacity(0.18)) : AnyShapeStyle(.quaternary.opacity(0.6)), in: .capsule)
         }
         .menuStyle(.button)
         .menuIndicator(.hidden)
         .buttonStyle(.plain)
-        .glassEffect(isProtected ? .regular.tint(Color.moleGood.opacity(0.2)).interactive() : .regular.interactive(), in: .capsule)
         .fixedSize()
         .help(isProtected ? "\(artifact.displayPath) is protected" : artifact.displayPath)
         .accessibilityLabel("\(artifact.type), \(artifact.size)\(isProtected ? ", protected" : "")")
     }
 
     private var recentNote: some View {
-        InfoBanner(symbol: "clock.badge.checkmark",
-                   title: "Recently active projects are kept automatically",
-                   message: "Mole skips artifacts modified in the last 7 days, so you won't lose the build you're working on.",
-                   tint: theme.accent)
+        Footnote(symbol: "clock", text: "Projects you changed in the last 7 days are skipped, so you won't lose the build you're working on.")
     }
 
     @ViewBuilder
@@ -277,7 +302,7 @@ struct PurgeView: View {
                             Text(entry.path).font(.callout).lineLimit(1).truncationMode(.middle)
                             Spacer()
                             Button("Unprotect") { Task { await store.unprotect(entry, service: service) } }
-                                .buttonStyle(.glass).controlSize(.small)
+                                .buttonStyle(.soft).controlSize(.small)
                                 .disabled(store.isBusy)
                         }
                     }
@@ -297,7 +322,7 @@ struct PurgeView: View {
                     SectionTitle(title: "Where Mole looks", symbol: "folder.badge.gearshape",
                                  detail: configured.isEmpty ? "Default locations" : "Your list")
                     Button("Edit in Protection", systemImage: "arrow.right.circle") { model.route = .protection }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.soft)
                         .controlSize(.small)
                 }
                 ChipFlowLayout(spacing: 8) {
@@ -341,7 +366,7 @@ struct PurgeView: View {
                         ForEach(store.purgeErrors, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }
                     }
                     Spacer()
-                    Button("Done") { store.dismissResult() }.buttonStyle(.glass)
+                    Button("Done") { store.dismissResult() }.buttonStyle(.soft)
                 }
             }
         } else if !store.purgeErrors.isEmpty {
@@ -361,7 +386,7 @@ struct PurgeView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
-                    Button("Dismiss") { withAnimation { store.dismissListChange() } }.buttonStyle(.glass)
+                    Button("Dismiss") { withAnimation { store.dismissListChange() } }.buttonStyle(.soft)
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(change.added.prefix(8)) { artifact in

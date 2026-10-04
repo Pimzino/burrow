@@ -20,7 +20,7 @@ struct UninstallSessionCard: View {
                                  steps: ["Match apps", "Find leftovers", "Review", "Remove"],
                                  currentStep: step, onCancel: { session.cancel() })
                 Button("Open Review…", systemImage: "list.bullet.rectangle", action: showReview)
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.hero(.uninstall))
                     .help("Show the files Mole found and confirm or cancel")
             }
         case .cancelling:
@@ -42,13 +42,9 @@ struct UninstallSessionCard: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Nothing was removed").font(.title3.weight(.semibold))
                         Text(message).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-                        if let run = session.run, !run.lines.isEmpty {
-                            DisclosureGroup("Mole output") { ConsoleView(lines: run.lines, maxHeight: 180) }
-                                .font(.callout)
-                        }
                     }
                     Spacer()
-                    Button("Dismiss", action: dismiss).buttonStyle(.glass)
+                    Button("Dismiss", action: dismiss).buttonStyle(.soft)
                 }
             }
         case .cancelled:
@@ -102,7 +98,7 @@ struct UninstallSessionCard: View {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(ByteFormat.parse(freed).map { ByteFormat.string($0) } ?? freed)
                                 .font(.system(size: 34, weight: .bold, design: .rounded))
-                                .foregroundStyle(theme.gradient)
+                                .foregroundStyle(theme.accent)
                                 .contentTransition(.numericText())
                             Text(session.dryRun ? "would be freed" : "freed").foregroundStyle(.secondary)
                         }
@@ -132,7 +128,7 @@ struct UninstallSessionCard: View {
                 }
                 Spacer()
                 Button("Done", action: dismiss)
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .keyboardShortcut(.defaultAction)
             }
         }

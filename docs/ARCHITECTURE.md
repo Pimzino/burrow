@@ -28,7 +28,7 @@ Read the section for your command before writing a parser.
 | `Core/MoleEnvironment.swift` | Locating `mo` and its `libexec`; the child environment (`NO_COLOR=1`, `TERM=dumb`, full PATH, `EDITOR=/usr/bin/true`); `MolePaths` for all config and log files. |
 | `Core/AppUpdate.swift` | Burrow's own updates: `SemanticVersion`, `ReleaseFeed` (GitHub Releases), `UpdateInstaller` (download → Ed25519 + digest verification → mount and validate the new bundle → atomic `RENAME_SWAP` → detached relaunch). Trust model in the file header and `docs/RELEASING.md`. |
 | `Core/Models.swift` | Codable models: `StatusSnapshot`, `AnalyzeReport`, `HistoryReport`, `InstalledApp`, `AppMetadata`; `ByteFormat.string/parse`. |
-| `Design/*` | `FeatureTheme` (per-area gradient, symbol, title), `FeaturePage` (scrolling page with ambient background), `PageHeader`, `GlassCard`, `StatTile`, `RingGauge`, `CapsuleBar`, `Pill`, `EmptyStateView`, `ScanningView`, `ErrorBanner`, `InfoBanner`, `.buttonStyle(.hero(theme))`, `ConsoleView`, `RunStatusCard`, `AuthSheet`, `ConfirmSheet`, `Finder.reveal/open/icon`, `String.abbreviatingHome`. |
+| `Design/*` | `FeatureTheme` (per-area gradient, symbol, title), `FeaturePage` (scrolling page with ambient background), `PageHeader`, `GlassCard`, `StatTile`, `RingGauge`, `CapsuleBar`, `Pill`, `EmptyStateView`, `ScanningView`, `ErrorBanner`, `InfoBanner`, `Footnote`, `RunStatusCard` (status row only: Burrow never shows Mole's raw output), `AuthSheet`, `ConfirmSheet`, `Finder.reveal/open/icon`, `String.abbreviatingHome`. |
 | `App/*` | `AppModel` (environment object: `service`, `status`, `automation`, `route`, `availableUpdate`, `hasFullDiskAccess`), `StatusMonitor` (environment object streaming `mo status --watch`: `snapshot`, `samples`, `enriched`, `hardware`, `batteries`), `RootView` (sidebar), `Automation`, `AppUpdater` (`model.updater`: observable update state, daily checks, settings). The Software Update window is `Features/Update/UpdateWindow.swift`. |
 | `Features/<Area>/` | One folder per area. Each owns its views, view models and parsers. |
 
@@ -56,6 +56,13 @@ Environment objects available in every feature view: `@Environment(AppModel.self
    - Keep parsers as pure `struct`/`enum` types in your folder.
    - Prefer JSON where Mole has it.
 5. **Design.** It must look beautiful and native:
+   - Collections are lists, not card grids: one `GlassCard(padding: 0)` with a header row, divided rows with aligned columns, ranked (largest first) where size matters, and details that open in place. Cards of different heights in an adaptive grid are not used.
+   - One primary action per page, in the `PageHeader`.
+   - Two button styles only, both capsules with shared metrics: `.buttonStyle(.soft)` for secondary actions and `.buttonStyle(.hero(theme))` for the primary one. They scale with `controlSize`; `PageHeader` sizes its actions `.large`. Don't use the system `.glass`/`.glassProminent` button styles.
+   - No ornament: no coloured glows, no looping or bouncing animation, no confetti, no gradient text. Motion only where it reports progress.
+   - Pills are for real per-row states (Homebrew, Protected, Needs attention). Facts go in one secondary text line; standing explanations use `Footnote`, and `InfoBanner` is for things that need attention.
+   - Don't repeat a number the page header already shows in a row of `StatTile`s.
+   - No terminal: never show Mole's raw output or `mo …` command lines. Report progress and results in plain words.
    - Liquid Glass (`.glassEffect`, `.buttonStyle(.glass/.glassProminent)`, `GlassEffectContainer` where shapes merge), SF Symbols, rounded display type for big numbers, `.contentTransition(.numericText())`, smooth spring animations, `Charts` for charts.
    - Every screen needs polished empty, loading, error and success states.
    - No third-party packages.

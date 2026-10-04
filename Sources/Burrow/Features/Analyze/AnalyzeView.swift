@@ -60,11 +60,11 @@ struct AnalyzeView: View {
         HStack(spacing: 8) {
             if analyzer.current != .overview && analyzer.current != nil {
                 Button("Overview", systemImage: "chart.pie") { analyzer.showOverview(service: service) }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .help("Back to the whole-Mac overview")
             }
             Button("Choose Folder…", systemImage: "folder.badge.plus", action: chooseFolder)
-                .buttonStyle(.glass)
+                .buttonStyle(.soft)
                 .keyboardShortcut("o", modifiers: .command)
             Button(action: { analyzer.rescan(service: service) }) {
                 Label("Rescan", systemImage: "arrow.clockwise")
@@ -112,7 +112,7 @@ struct AnalyzeView: View {
                 }
                 if analyzer.current != .overview {
                     Button("Back to Overview", systemImage: "chart.pie") { analyzer.showOverview(service: service) }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.soft)
                 }
             }
         } else {
@@ -317,7 +317,7 @@ private struct AnalyzeScanGate<Content: View>: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 520)
                 Button("Cancel", systemImage: "xmark", action: cancel)
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .keyboardShortcut(.cancelAction)
                     .padding(.top, 12)
             }
@@ -386,7 +386,7 @@ private struct AnalyzeSelectionBar: View {
             Button(role: .destructive) { actions.trash(path, size, isDir) } label: {
                 Label("Move to Trash", systemImage: "trash")
             }
-            .buttonStyle(.glassProminent)
+            .buttonStyle(.hero(.analyze))
             .tint(Color.moleBad)
             .keyboardShortcut(.delete, modifiers: .command)
             Button("Deselect", systemImage: "xmark", action: deselect)
@@ -406,7 +406,7 @@ private struct AnalyzeSelectionBar: View {
     private func iconButton(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(title, systemImage: symbol, action: action)
             .labelStyle(.iconOnly)
-            .buttonStyle(.glass)
+            .buttonStyle(.soft)
             .help(title)
     }
 }

@@ -89,7 +89,6 @@ struct FeatureIcon: View {
                     .strokeBorder(.white.opacity(0.35), lineWidth: 0.5)
             }
             .frame(width: size, height: size)
-            .shadow(color: theme.accent.opacity(0.35), radius: size * 0.18, y: size * 0.08)
             .accessibilityHidden(true)
     }
 }
@@ -111,7 +110,9 @@ struct PageHeader<Trailing: View>: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
+            // Header actions share one size and shape: `.soft` for secondary, `.hero` for the primary.
             trailing
+                .controlSize(.large)
         }
     }
 }
@@ -162,7 +163,6 @@ struct RingGauge<Label: View>: View {
                                         startAngle: .degrees(0), endAngle: .degrees(360 * max(0.001, min(1, value)))),
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .shadow(color: (colors.last ?? .clear).opacity(0.4), radius: lineWidth * 0.5)
             label
         }
         .animation(.smooth(duration: 0.8), value: value)
@@ -260,7 +260,6 @@ struct EmptyStateView: View {
             Image(systemName: symbol)
                 .font(.system(size: 44, weight: .light))
                 .foregroundStyle(tint)
-                .symbolEffect(.pulse, options: .repeat(2))
             Text(title).font(.title3.weight(.semibold))
             if let message {
                 Text(message)
@@ -275,42 +274,32 @@ struct EmptyStateView: View {
     }
 }
 
-/// Animated scanning indicator: concentric pulses around the feature icon.
+/// Working state: the feature icon, what is happening, and a progress spinner.
 struct ScanningView: View {
     let theme: FeatureTheme
     let title: String
     var detail: String? = nil
-    @State private var animate = false
 
     var body: some View {
-        VStack(spacing: 18) {
-            ZStack {
-                ForEach(0..<3) { i in
-                    Circle()
-                        .stroke(theme.gradient, lineWidth: 2)
-                        .frame(width: 80, height: 80)
-                        .scaleEffect(animate ? 2.1 : 0.9)
-                        .opacity(animate ? 0 : 0.7)
-                        .animation(.easeOut(duration: 2.2).repeatForever(autoreverses: false).delay(Double(i) * 0.7), value: animate)
-                }
-                FeatureIcon(theme: theme, size: 64)
-                    .symbolEffect(.bounce, options: .repeat(.continuous), value: animate)
+        VStack(spacing: 14) {
+            FeatureIcon(theme: theme, size: 56)
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(title).font(.title3.weight(.semibold))
             }
-            .frame(height: 170)
-            Text(title).font(.title3.weight(.semibold))
             if let detail {
                 Text(detail)
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
                     .truncationMode(.middle)
-                    .frame(maxWidth: 460)
+                    .frame(maxWidth: 520)
                     .contentTransition(.opacity)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .onAppear { animate = true }
+        .padding(.vertical, 36)
         .accessibilityElement(children: .combine)
     }
 }
@@ -324,7 +313,7 @@ struct ErrorBanner: View {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.moleWarn).font(.title3)
             Text(message).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
             if let retry {
-                Button("Try Again", action: retry).buttonStyle(.glass)
+                Button("Try Again", action: retry).buttonStyle(.soft)
             }
         }
         .padding(14)
@@ -352,7 +341,7 @@ struct InfoBanner: View {
             }
             Spacer()
             if let actionTitle, let action {
-                Button(actionTitle, action: action).buttonStyle(.glass)
+                Button(actionTitle, action: action).buttonStyle(.soft)
             }
         }
         .padding(14)
@@ -360,33 +349,94 @@ struct InfoBanner: View {
     }
 }
 
+/// A quiet one-line explanation under a list or card. Use instead of a banner when nothing needs attention.
+struct Footnote: View {
+    let symbol: String
+    let text: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: symbol).foregroundStyle(.tertiary)
+            Text(text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action).buttonStyle(.link)
+            }
+        }
+        .font(.callout)
+        .padding(.horizontal, 6)
+    }
+}
+
 // MARK: - Buttons
 
-/// The big gradient call-to-action used for each page's primary action.
+/// Shared metrics so primary and secondary buttons are the same height and shape at every control size.
+private struct CapsuleButtonMetrics {
+    let font: Font
+    let horizontal: CGFloat
+    let vertical: CGFloat
+
+    init(_ size: ControlSize) {
+        switch size {
+        case .mini, .small: (font, horizontal, vertical) = (.caption.weight(.semibold), 11, 4)
+        case .large, .extraLarge: (font, horizontal, vertical) = (.headline, 20, 9)
+        default: (font, horizontal, vertical) = (.callout.weight(.semibold), 15, 7)
+        }
+    }
+}
+
+/// The solid, accent-coloured capsule used for a screen's primary action.
 struct HeroButtonStyle: ButtonStyle {
-    let theme: FeatureTheme
+    let tint: Color
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
 
     func makeBody(configuration: Configuration) -> some View {
+        let m = CapsuleButtonMetrics(controlSize)
         configuration.label
-            .font(.headline)
+            .font(m.font)
             .foregroundStyle(.white)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 11)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, m.horizontal)
+            .padding(.vertical, m.vertical)
             .background {
-                Capsule().fill(theme.gradient)
-                    .overlay(Capsule().fill(.white.opacity(configuration.isPressed ? 0.18 : 0)))
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+                Capsule().fill(tint)
+                    .overlay(Capsule().fill(.black.opacity(configuration.isPressed ? 0.15 : 0)))
             }
-            .shadow(color: theme.accent.opacity(isEnabled ? 0.4 : 0), radius: 10, y: 4)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .contentShape(.capsule)
             .opacity(isEnabled ? 1 : 0.45)
-            .animation(.snappy(duration: 0.18), value: configuration.isPressed)
+    }
+}
+
+/// The quiet capsule used for every secondary action. Same shape and metrics as `HeroButtonStyle`.
+struct SoftButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    func makeBody(configuration: Configuration) -> some View {
+        let m = CapsuleButtonMetrics(controlSize)
+        configuration.label
+            .font(m.font)
+            .foregroundStyle(configuration.role == .destructive ? AnyShapeStyle(Color.moleBad) : AnyShapeStyle(.primary))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, m.horizontal)
+            .padding(.vertical, m.vertical)
+            .background(Color.primary.opacity(configuration.isPressed ? 0.18 : 0.10), in: .capsule)
+            .contentShape(.capsule)
+            .opacity(isEnabled ? 1 : 0.45)
     }
 }
 
 extension ButtonStyle where Self == HeroButtonStyle {
-    static func hero(_ theme: FeatureTheme) -> HeroButtonStyle { HeroButtonStyle(theme: theme) }
+    static func hero(_ theme: FeatureTheme) -> HeroButtonStyle { HeroButtonStyle(tint: theme.accent) }
+    static func hero(tint: Color) -> HeroButtonStyle { HeroButtonStyle(tint: tint) }
+}
+
+extension ButtonStyle where Self == SoftButtonStyle {
+    static var soft: SoftButtonStyle { SoftButtonStyle() }
 }
 
 // MARK: - Helpers

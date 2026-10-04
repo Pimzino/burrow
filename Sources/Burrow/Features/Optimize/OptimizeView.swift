@@ -6,7 +6,6 @@ struct OptimizeView: View {
     @Environment(MoleService.self) private var service
     @State private var vm = OptimizeModel.shared
     @State private var confirming = false
-    @State private var expandedTask: String?
 
     private let theme = FeatureTheme.optimize
 
@@ -45,11 +44,11 @@ struct OptimizeView: View {
         HStack(spacing: 10) {
             if vm.isRunning {
                 Button("Stop", systemImage: "stop.fill") { vm.cancel() }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .keyboardShortcut(".", modifiers: .command)
             } else {
                 Button("Preview", systemImage: "eye") { vm.start(.preview, service: service) }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.soft)
                     .keyboardShortcut("r", modifiers: .command)
                     .help("See what Mole would do, without changing anything (⌘R)")
                 Button {
@@ -95,29 +94,11 @@ struct OptimizeView: View {
         default:
             OptimizeIntroCard(vm: vm, theme: theme) { vm.start(.preview, service: service) }
         }
-        if let system = vm.report.system {
-            OptimizeSystemStrip(system: system, theme: theme)
-        }
         if !vm.report.diagnosis.isEmpty || !vm.report.notes.isEmpty {
             OptimizeInsightsCard(report: vm.report)
         }
-        if let run = vm.run {
-            RunStatusCard(run: run, theme: theme,
-                          headline: run.state.isRunning ? (vm.runningMode == .optimize ? "Mole is optimizing" : "Mole is previewing") : "Mole output")
-        }
-        HStack(alignment: .firstTextBaseline) {
-            SectionTitle(title: "Maintenance tasks", symbol: "square.grid.2x2",
-                         detail: "\(vm.includedTasks.count) of \(vm.tasks.count) included")
-        }
-        .padding(.top, 4)
-        .id("optimize.tasks")
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 14, alignment: .top)], spacing: 14) {
-            ForEach(vm.tasks) { task in
-                OptimizeTaskCard(task: task, vm: vm, theme: theme, expanded: expandedTask == task.id) {
-                    withAnimation(.snappy) { expandedTask = expandedTask == task.id ? nil : task.id }
-                }
-            }
-        }
+        OptimizeTaskList(vm: vm, theme: theme)
+            .id("optimize.tasks")
         OptimizeOptionsCard(vm: vm) { model.route = .protection }
     }
 
@@ -144,29 +125,18 @@ struct OptimizeIntroCard: View {
 
     var body: some View {
         GlassCard(padding: 28) {
-            HStack(spacing: 28) {
-                ZStack {
-                    Circle().fill(theme.gradient.opacity(0.15)).frame(width: 150, height: 150)
-                    FeatureIcon(theme: theme, size: 80)
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Keep macOS running smoothly")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                    Text("Mole refreshes caches and services, repairs broken preferences and permissions, tidies databases and checks for performance bottlenecks. Preview first to see exactly what would change.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 10) {
-                        Button(action: preview) { Label("Preview Changes", systemImage: "eye") }
-                            .buttonStyle(.hero(theme))
-                        Pill(text: "\(vm.tasks.filter(\.needsAdmin).count) tasks need admin", symbol: "lock.shield", tint: .orange)
-                        if !vm.catalogFromMole && vm.loaded {
-                            Pill(text: "Built-in task list", symbol: "info.circle", tint: .secondary)
-                        }
-                    }
-                    .padding(.top, 4)
-                }
-                Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Keep macOS running smoothly")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Text("Mole refreshes caches and services, repairs broken preferences and permissions, tidies databases and checks for performance bottlenecks. Preview first to see exactly what would change. \(vm.tasks.filter(\.needsAdmin).count) of the tasks need your administrator password.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 620, alignment: .leading)
+                Button(action: preview) { Label("Preview Changes", systemImage: "eye") }
+                    .buttonStyle(.hero(theme))
+                    .controlSize(.large)
+                    .padding(.top, 6)
             }
         }
     }
@@ -202,8 +172,7 @@ struct OptimizeProgressCard: View {
                         if let current {
                             Image(systemName: current.symbol)
                                 .font(.title)
-                                .foregroundStyle(theme.gradient)
-                                .symbolEffect(.pulse, options: .repeat(.continuous))
+                                .foregroundStyle(theme.accent)
                                 .contentTransition(.symbolEffect(.replace))
                         }
                         Text(current?.displayName ?? (vm.report.system == nil ? "Collecting system info…" : "Checking performance…"))
@@ -229,7 +198,6 @@ struct OptimizeSummaryCard: View {
     let theme: FeatureTheme
     /// Set when Mole ended without a summary; the card then reports it as unfinished, never as success.
     var incompleteReason: String? = nil
-    @State private var appeared = false
 
     private struct Slice: Identifiable {
         let id: String
@@ -259,14 +227,12 @@ struct OptimizeSummaryCard: View {
                     VStack(spacing: 0) {
                         Text("\(s?.applied ?? 0)")
                             .font(.system(size: 40, weight: .bold, design: .rounded))
-                            .foregroundStyle(theme.gradient)
+                            .foregroundStyle(theme.accent)
                             .contentTransition(.numericText())
                         Text(mode == .preview ? "would apply" : "applied").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: 160, height: 160)
-                .scaleEffect(appeared ? 1 : 0.85)
-                .opacity(appeared ? 1 : 0)
                 VStack(alignment: .leading, spacing: 10) {
                     Label(headline(s, attention: attention), systemImage: warn ? "exclamationmark.triangle.fill" : "checkmark.seal.fill")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
@@ -277,13 +243,12 @@ struct OptimizeSummaryCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                     FlowPills(slices: slices.map { ($0.id, $0.count, $0.color) })
                     if let stat = s?.keyStat {
-                        Pill(text: stat, symbol: "sparkles", tint: theme.accent)
+                        Text(stat).font(.callout).foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
             }
         }
-        .onAppear { withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) { appeared = true } }
     }
 
     private func headline(_ s: OptimizeReport.Summary?, attention: Int) -> String {
@@ -295,7 +260,7 @@ struct OptimizeSummaryCard: View {
 
     private func detail(_ s: OptimizeReport.Summary?, attention: Int) -> String {
         if let incompleteReason { return incompleteReason }
-        guard let s else { return "Mole ended without a summary. Open the output for details." }
+        guard let s else { return "Mole ended without a summary, so the result is unknown. Run a preview to check." }
         let n = s.applied ?? 0
         var text = mode == .preview
             ? "\(n) optimization\(n == 1 ? "" : "s") would be applied. Nothing has changed yet."
@@ -335,24 +300,6 @@ private struct FlowPills: View {
 }
 
 // MARK: - System + insights
-
-struct OptimizeSystemStrip: View {
-    let system: OptimizeReport.SystemStats
-    let theme: FeatureTheme
-
-    var body: some View {
-        HStack(spacing: 14) {
-            StatTile(title: "Memory", value: "\(Int(system.ramUsed)) of \(Int(system.ramTotal)) GB", symbol: "memorychip",
-                     tint: .purple, fraction: system.ramTotal > 0 ? system.ramUsed / system.ramTotal : nil)
-            StatTile(title: "Disk", value: "\(Int(system.diskUsed)) of \(Int(system.diskTotal)) GB", symbol: "internaldrive",
-                     tint: .blue, fraction: system.diskTotal > 0 ? system.diskUsed / system.diskTotal : nil)
-            StatTile(title: "Uptime", value: "\(system.uptimeDays) day\(system.uptimeDays == 1 ? "" : "s")",
-                     symbol: "clock", tint: system.uptimeDays > 14 ? .moleWarn : theme.accent,
-                     fraction: min(1, Double(system.uptimeDays) / 30))
-                .help(system.uptimeDays > 14 ? "A restart can help after long uptimes" : "Time since the last restart")
-        }
-    }
-}
 
 struct OptimizeInsightsCard: View {
     let report: OptimizeReport
