@@ -14,6 +14,7 @@ Read the section for your command before writing a parser.
 - `scripts/build-app.sh [debug|release]` produces `build/Burrow.app` (`BURROW_VERSION` overrides its version).
 - `scripts/make-dmg.sh [version]` packages it as `build/Burrow-<version>.dmg` (see the script header).
 - `scripts/update-e2e.sh` tests in-app updates end to end against a local fake GitHub API (docs/RELEASING.md).
+- `scripts/setup-e2e.sh` captures every first-run setup step in dark and light, then walks the flow to the end (report in `e2e-results/setup-<timestamp>/`).
 - `scripts/shot.sh <binary> <route> <out.png> [wait] [YES|NO autorun] [reportDir]` launches one screen and captures its window as a PNG.
 - Screen recording works here, so check your UI visually. After an automated run, kill the process.
 - Routes: `dashboard clean uninstall optimize analyze purge installers history protection`.
@@ -31,6 +32,7 @@ Read the section for your command before writing a parser.
 | `Design/*` | `FeatureTheme` (per-area gradient, symbol, title), `FeaturePage` (scrolling page with ambient background), `PageHeader`, `GlassCard`, `StatTile`, `RingGauge`, `CapsuleBar`, `Pill`, `EmptyStateView`, `ScanningView`, `ErrorBanner`, `InfoBanner`, `Footnote`, `RunStatusCard` (status row only: Burrow never shows Mole's raw output), `AuthSheet`, `ConfirmSheet`, `Finder.reveal/open/icon`, `String.abbreviatingHome`. |
 | `App/*` | `AppModel` (environment object: `service`, `status`, `automation`, `route`, `availableUpdate`, `hasFullDiskAccess`), `StatusMonitor` (environment object streaming `mo status --watch`: `snapshot`, `samples`, `enriched`, `hardware`, `batteries`), `RootView` (sidebar), `Automation`, `AppUpdater` (`model.updater`: observable update state, daily checks, settings). The Software Update window is `Features/Update/UpdateWindow.swift`. |
 | `Features/<Area>/` | One folder per area. Each owns its views, view models and parsers. |
+| `Features/Setup/` | First-run setup (`model.setup`, a `SetupModel`): Welcome → Install Mole (only when missing) → Access → Ready, taking over the main window until finished. Rules: nothing but Mole is required; every permission row says why, shows live status and has one action; the step is saved so setup resumes after macOS quits and reopens Burrow for Full Disk Access; live status (which triggers the Finder prompt) starts only after setup. `-BurrowSetup <step>` shows a step without saving or requesting anything. Re-entry: Settings › General › Show Setup Again. Ask for anything else (administrator password, Touch ID) in context, never here. |
 
 Environment objects available in every feature view: `@Environment(AppModel.self)`, `@Environment(MoleService.self)`, `@Environment(StatusMonitor.self)`.
 

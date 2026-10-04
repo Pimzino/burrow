@@ -7,26 +7,14 @@ struct RootView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        @Bindable var model = model
-        NavigationSplitView {
-            Sidebar(selection: $model.route)
-                .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
-        } detail: {
-            Group {
-                if service.isLocating {
-                    ScanningView(theme: .dashboard, title: "Looking for Mole…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background { AmbientBackground(theme: .dashboard) }
-                } else if !service.isAvailable {
-                    OnboardingView()
-                } else {
-                    detail(for: model.route)
-                        .id(model.route)
-                        .transition(.opacity)
-                }
+        Group {
+            switch model.setup.presentation {
+            case .pending: AmbientBackground(theme: .setup)
+            case .shown: SetupView().transition(.opacity)
+            case .hidden: mainInterface.transition(.opacity)
             }
-            .animation(.smooth(duration: 0.25), value: model.route)
         }
+        .animation(.smooth(duration: 0.35), value: model.setup.presentation)
         .task {
             // E2E: open the Settings window so its tabs can be captured.
             if UserDefaults.standard.bool(forKey: "MoleE2EOpenSettings") {
@@ -41,6 +29,29 @@ struct RootView: View {
             guard release != nil else { return }
             model.updater.prompt = nil
             openWindow(id: UpdateWindow.id)
+        }
+    }
+
+    private var mainInterface: some View {
+        @Bindable var model = model
+        return NavigationSplitView {
+            Sidebar(selection: $model.route)
+                .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
+        } detail: {
+            Group {
+                if service.isLocating {
+                    ScanningView(theme: .dashboard, title: "Looking for Mole…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background { AmbientBackground(theme: .dashboard) }
+                } else if !service.isAvailable {
+                    MoleMissingView()
+                } else {
+                    detail(for: model.route)
+                        .id(model.route)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.smooth(duration: 0.25), value: model.route)
         }
     }
 
@@ -155,89 +166,5 @@ private struct Sidebar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-    }
-}
-
-/// Shown when the Mole CLI cannot be found.
-struct OnboardingView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(MoleService.self) private var service
-    @State private var install: CommandRun?
-    @State private var installError: String?
-    @State private var running = false
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 26) {
-                FeatureIcon(theme: .clean, size: 96)
-                    .padding(.top, 50)
-                VStack(spacing: 8) {
-                    Text("Welcome to Burrow").font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("Burrow is a beautiful home for the open-source Mole CLI. Install Mole to get started.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 520)
-                }
-                GlassCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label("Install with Homebrew", systemImage: "shippingbox").font(.headline)
-                        Text("Burrow installs Mole for you with Homebrew. It takes about a minute.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Button(running ? "Installing…" : "Install Now") { installWithBrew() }
-                                .buttonStyle(.hero(.clean))
-                                .disabled(running || brewPath == nil)
-                            Button("Check Again") { Task { await model.relocate() } }
-                                .buttonStyle(.soft)
-                            Spacer()
-                            Link("Mole on GitHub", destination: URL(string: "https://github.com/tw93/mole")!)
-                        }
-                        if brewPath == nil {
-                            Text("Homebrew was not found. Install it from brew.sh, or use Mole's install script.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        if running {
-                            HStack(spacing: 8) {
-                                ProgressView().controlSize(.small)
-                                Text("Installing Mole…").font(.callout).foregroundStyle(.secondary)
-                            }
-                        } else if let installError {
-                            ErrorBanner(message: installError)
-                        }
-                    }
-                }
-                .frame(maxWidth: 560)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(Metrics.pagePadding)
-        }
-        .background { AmbientBackground(theme: .clean) }
-    }
-
-    private var brewPath: String? {
-        ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    private func installWithBrew() {
-        guard let brewPath else { return }
-        running = true
-        installError = nil
-        Task {
-            do {
-                let process = try Subprocess(executable: brewPath, arguments: ["install", "mole"],
-                                             environment: MoleLocator.environment(), stdinOpen: false)
-                var last = ""
-                for await event in process.events {
-                    if case .line(let line) = event, !line.text.trimmingCharacters(in: .whitespaces).isEmpty { last = line.text }
-                }
-                await model.relocate()
-                if !service.isAvailable { installError = "Homebrew couldn’t install Mole. \(last)" }
-            } catch {
-                installError = error.localizedDescription
-            }
-            running = false
-        }
     }
 }

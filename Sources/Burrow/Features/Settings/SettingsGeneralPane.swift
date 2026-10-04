@@ -1,12 +1,12 @@
 import AppKit
-import ServiceManagement
 import SwiftUI
 
 struct SettingsGeneralPane: View {
     @Environment(AppModel.self) private var model
     @Environment(MoleService.self) private var service
     @Environment(StatusMonitor.self) private var status
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @Environment(\.openWindow) private var openWindow
+    @State private var launchAtLogin = LoginItem.isEnabled
     @State private var loginError: String?
     @State private var customPath = UserDefaults.standard.string(forKey: "moleLauncherPath") ?? ""
     @State private var relocating = false
@@ -110,12 +110,23 @@ struct SettingsGeneralPane: View {
                     Text("Lets Mole measure and clean protected folders such as Mail and Safari data.")
                 }
                 LabeledContent {
-                    Button("Automation Settings…") {
-                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+                    if model.setup.finderAutomation == .granted {
+                        SettingsStatusPill(text: "Allowed", on: true)
+                    } else {
+                        Button("Automation Settings…") { FinderAutomation.openSettings() }
                     }
                 } label: {
                     Text("Automation")
                     Text("Mole may ask to control Finder (to move items to the Trash) or System Events. You grant that to Burrow once, in System Settings › Privacy & Security › Automation.")
+                }
+                LabeledContent {
+                    Button("Show Setup Again…") {
+                        model.setup.restart(moleAvailable: service.isAvailable)
+                        openWindow(id: "main")
+                    }
+                } label: {
+                    Text("Setup")
+                    Text("Walk through the welcome and permission steps again.")
                 }
             }
         }
@@ -126,8 +137,9 @@ struct SettingsGeneralPane: View {
             if let saved = UserDefaults.standard.object(forKey: "moleDebugLogging") as? Bool, saved != service.debugLogging {
                 service.debugLogging = saved
             }
-            launchAtLogin = SMAppService.mainApp.status == .enabled
+            launchAtLogin = LoginItem.isEnabled
         }
+        .task { await model.setup.refreshFinderAutomation() }
     }
 
     private func chooseLauncher() {
@@ -160,23 +172,7 @@ struct SettingsGeneralPane: View {
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {
-        loginError = nil
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            loginError = Bundle.main.bundleIdentifier == nil
-                ? "Available when Burrow runs as an app bundle."
-                : error.localizedDescription
-        }
-        let current = SMAppService.mainApp.status
-        launchAtLogin = current == .enabled
-        if current == .requiresApproval {
-            loginError = "Approve Burrow in System Settings › General › Login Items."
-            SMAppService.openSystemSettingsLoginItems()
-        }
+        loginError = LoginItem.set(enabled)
+        launchAtLogin = LoginItem.isEnabled
     }
 }

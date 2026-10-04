@@ -28,14 +28,24 @@ enum Route: String, CaseIterable, Identifiable, Hashable {
 final class AppModel {
     let service = MoleService()
     let status = StatusMonitor()
-    let automation = Automation()
+    let automation: Automation
     let updater = AppUpdater()
+    let setup: SetupModel
     var route: Route = .dashboard
     /// Set when a newer Mole release is available ("1.56.1").
     var availableUpdate: String?
     var hasFullDiskAccess = FullDiskAccess.isGranted
+    /// Full Disk Access was turned on while Burrow was running: Mole's processes already have it,
+    /// Burrow itself gets it the next time it opens.
+    var fullDiskAccessNeedsRelaunch = false
 
     @ObservationIgnored private var bootstrapped = false
+
+    init() {
+        let automation = Automation()
+        self.automation = automation
+        setup = SetupModel(automationActive: automation.isActive)
+    }
 
     func bootstrap() async {
         guard !bootstrapped else { return }
@@ -64,10 +74,22 @@ final class AppModel {
         if let updateE2E { Task { await runUpdateE2E(updateE2E) } }
 
         await service.locate(preferred: UserDefaults.standard.string(forKey: "moleLauncherPath"))
-        if let installation = service.installation {
-            status.start(installation: installation)
-            Task { await checkForUpdate() }
-        }
+        await setup.resolve(moleAvailable: service.isAvailable, fullDiskAccess: hasFullDiskAccess)
+        startStatus()
+        if service.isAvailable { Task { await checkForUpdate() } }
+    }
+
+    /// Live status asks Finder for disk figures, which makes macOS show its "control Finder" prompt.
+    /// It waits until setup has explained that, so the prompt never appears out of the blue.
+    private func startStatus() {
+        guard !setup.isActive, let installation = service.installation else { return }
+        status.start(installation: installation)
+    }
+
+    func finishSetup() {
+        setup.finish()
+        refreshPermissions()
+        startStatus()
     }
 
     /// `-BurrowUpdateE2E check|install` (scripts/update-e2e.sh): checks the feed, shows the Software Update
@@ -105,11 +127,26 @@ final class AppModel {
 
     func relocate() async {
         await service.locate(preferred: UserDefaults.standard.string(forKey: "moleLauncherPath"))
-        if let installation = service.installation { status.start(installation: installation) }
+        startStatus()
     }
 
     func refreshPermissions() {
         hasFullDiskAccess = FullDiskAccess.isGranted
+        if hasFullDiskAccess { fullDiskAccessNeedsRelaunch = false }
+    }
+
+    /// Also asks a fresh process, which sees a grant made since Burrow launched.
+    func refreshPermissionsFromChild() async {
+        refreshPermissions()
+        guard !hasFullDiskAccess else { return }
+        fullDiskAccessNeedsRelaunch = await FullDiskAccess.isGrantedToNewProcesses()
+    }
+
+    /// Quits and reopens Burrow so a newly granted permission applies to the app itself.
+    func relaunch() {
+        guard Bundle.main.bundleIdentifier != nil,
+              (try? UpdateInstaller.scheduleRelaunch(of: Bundle.main.bundleURL)) != nil else { return }
+        NSApp.terminate(nil)
     }
 
     /// Mirrors Mole's own update check: Homebrew's view for brew installs, GitHub's latest release otherwise.
@@ -138,17 +175,32 @@ final class AppModel {
 }
 
 enum FullDiskAccess {
-    /// Same probe Mole uses: these paths are only readable with Full Disk Access.
-    static var isGranted: Bool {
+    /// A folder only readable with Full Disk Access (the same ones Mole probes), falling back to the
+    /// TCC-protected Trash.
+    private static var probePath: String {
         let home = NSHomeDirectory()
-        for path in ["/Library/Safari", "/Library/Mail", "/Library/Messages"] where FileManager.default.fileExists(atPath: home + path) {
-            return (try? FileManager.default.contentsOfDirectory(atPath: home + path)) != nil
-        }
-        // Fall back to the TCC-protected Trash listing.
-        return (try? FileManager.default.contentsOfDirectory(atPath: home + "/.Trash")) != nil
+        return ["/Library/Safari", "/Library/Mail", "/Library/Messages"].map { home + $0 }
+            .first { FileManager.default.fileExists(atPath: $0) } ?? home + "/.Trash"
     }
 
-    static func openSettings() {
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
+    /// Reading the folder also makes macOS list Burrow under Full Disk Access, ready to be switched on.
+    static var isGranted: Bool {
+        (try? FileManager.default.contentsOfDirectory(atPath: probePath)) != nil
+    }
+
+    /// A running app keeps the answer it had at launch; a process started now gets the current one.
+    /// Mole always runs in fresh processes, so this is what its scans will see.
+    static func isGrantedToNewProcesses() async -> Bool {
+        let result = try? await Subprocess.run("/bin/ls", [probePath], environment: [:], timeout: 5)
+        return result?.exitCode == 0
+    }
+
+    static func openSettings() { PrivacySettings.open("Privacy_AllFiles") }
+}
+
+/// Deep links into System Settings › Privacy & Security (pane and anchors checked on macOS 26.6).
+enum PrivacySettings {
+    static func open(_ anchor: String) {
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?\(anchor)")!)
     }
 }

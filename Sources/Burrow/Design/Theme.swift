@@ -3,6 +3,8 @@ import SwiftUI
 /// Each area of the app has its own accent gradient, used for its icon, hero and primary action.
 enum FeatureTheme: String, CaseIterable, Sendable {
     case dashboard, clean, uninstall, optimize, analyze, purge, installers, history, protection, settings
+    /// First-run setup wears the brand colours (ember and lantern, docs/BRAND.md) rather than a feature's.
+    case setup
 
     var colors: [Color] {
         switch self {
@@ -16,6 +18,7 @@ enum FeatureTheme: String, CaseIterable, Sendable {
         case .history: [Color(red: 0.40, green: 0.48, blue: 0.62), Color(red: 0.55, green: 0.66, blue: 0.80)]
         case .protection: [Color(red: 0.18, green: 0.70, blue: 0.45), Color(red: 0.10, green: 0.55, blue: 0.75)]
         case .settings: [Color(red: 0.45, green: 0.47, blue: 0.53), Color(red: 0.62, green: 0.64, blue: 0.70)]
+        case .setup: [Color(red: 0.93, green: 0.42, blue: 0.20), Color(red: 1.0, green: 0.70, blue: 0.25)]
         }
     }
 
@@ -35,6 +38,7 @@ enum FeatureTheme: String, CaseIterable, Sendable {
         case .history: "clock.arrow.trianglehead.counterclockwise.rotate.90"
         case .protection: "checkmark.shield.fill"
         case .settings: "gearshape.fill"
+        case .setup: "lamp.table.fill"
         }
     }
 
@@ -50,6 +54,7 @@ enum FeatureTheme: String, CaseIterable, Sendable {
         case .history: "History"
         case .protection: "Protection"
         case .settings: "Settings"
+        case .setup: "Setup"
         }
     }
 
@@ -65,6 +70,7 @@ enum FeatureTheme: String, CaseIterable, Sendable {
         case .history: "Everything Mole has done"
         case .protection: "Paths Mole must never touch"
         case .settings: "Mole CLI and Burrow options"
+        case .setup: "Get Burrow ready"
         }
     }
 }
