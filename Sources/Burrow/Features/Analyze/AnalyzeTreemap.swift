@@ -79,10 +79,23 @@ struct AnalyzeTreemap<Menu: View>: View {
             }
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
             .onContinuousHover(coordinateSpace: .local) { phase in
-                if case .active(let location) = phase { pointer = location } else { hovered = nil }
+                // The hovered tile is worked out from the pointer and the layout, never from per-tile hover
+                // tracking, so exactly one tile is highlighted and it is always the one under the pointer.
+                guard case .active(let location) = phase else {
+                    if hovered != nil { withAnimation(.snappy(duration: 0.16)) { hovered = nil } }
+                    return
+                }
+                pointer = location
+                let hit = tile(at: location, in: rects)?.id
+                if hit != hovered { withAnimation(.snappy(duration: 0.16)) { hovered = hit } }
             }
             .animation(.spring(response: 0.45, dampingFraction: 0.86), value: tiles)
         }
+    }
+
+    /// The tile whose rectangle contains a point in the treemap's own coordinates.
+    private func tile(at point: CGPoint, in rects: [CGRect]) -> AnalyzeTile? {
+        rects.indices.first { rects[$0].contains(point) }.map { tiles[$0] }
     }
 
     @ViewBuilder
@@ -101,17 +114,11 @@ struct AnalyzeTreemap<Menu: View>: View {
                 shape.strokeBorder(.white.opacity(isSelected ? 0.95 : isHovered ? 0.7 : 0.18),
                                    lineWidth: isSelected ? 2.5 : isHovered ? 1.5 : 0.5)
             }
-            .shadow(color: .black.opacity(isHovered ? 0.25 : 0), radius: 8, y: 3)
-            .scaleEffect(isHovered && rect.width < 400 ? 1.015 : 1)
-            .zIndex(isHovered ? 1 : 0)
             .frame(width: rect.width, height: rect.height)
-            .offset(x: rect.minX, y: rect.minY)
+            // The hit area, gestures and menu are attached before the tile is moved into place. `offset` moves only
+            // what is drawn inside it: a content shape applied after it stays at the stack's top-left
+            // corner, which stacked every tile's hit area on top of the first one.
             .contentShape(shape)
-            .onHover { inside in
-                withAnimation(.snappy(duration: 0.16)) {
-                    if inside { hovered = tile.id } else if hovered == tile.id { hovered = nil }
-                }
-            }
             .onTapGesture(count: 2) { if !tile.isFolder { onOpen(tile) } }
             .simultaneousGesture(TapGesture().onEnded {
                 if tile.isFolder { onOpen(tile) } else { onSelect(tile) }
@@ -121,6 +128,9 @@ struct AnalyzeTreemap<Menu: View>: View {
             .accessibilityLabel("\(tile.name), \(ByteFormat.string(tile.size)), \(percent(tile)) of this folder")
             .accessibilityHint(tile.isFolder ? "Opens the folder" : tile.entry == nil ? "Lists every item below" : "Selects the item")
             .accessibilityAddTraits(.isButton)
+            .accessibilityAction { if tile.isFolder { onOpen(tile) } else { onSelect(tile) } }
+            .offset(x: rect.minX, y: rect.minY)
+            .zIndex(isHovered ? 1 : 0)
     }
 
     @ViewBuilder
