@@ -79,7 +79,7 @@ Dry Run Mode, Preview only, no deletions
 
 ======================================================================
 Dry run complete - no changes made
-Potential space: 24.31GB | Items: 197 | Categories: 8
+Potential space: 23.42GB | Items: 147 | Categories: 8
 Detailed file list: @CLEAN_LIST@
 Use mo clean --whitelist to add protection rules
 ======================================================================

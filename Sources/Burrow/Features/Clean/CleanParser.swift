@@ -38,8 +38,13 @@ struct CleanReport: Sendable, Equatable {
         let title: String
         var rows: [Row] = []
         var nothingToClean = false
+        /// This section's part of Mole's own total, from the preview file (see `CleanReport.reconcile`).
+        var measuredBytes: Int64?
 
-        var totalBytes: Int64 { rows.filter { $0.kind == .wouldClean || $0.kind == .cleaned }.compactMap(\.sizeBytes).reduce(0, +) }
+        /// What Mole's printed rows add up to. Rows can lack a size ("Browser code signature caches, 1 items")
+        /// or repeat bytes another section already counted, so this is only used until the preview file is read.
+        var rowsBytes: Int64 { rows.filter { $0.kind == .wouldClean || $0.kind == .cleaned }.compactMap(\.sizeBytes).reduce(0, +) }
+        var totalBytes: Int64 { measuredBytes ?? rowsBytes }
         var itemCount: Int { rows.compactMap(\.items).reduce(0, +) }
         var actionableRows: [Row] { rows.filter { $0.kind == .wouldClean || $0.kind == .cleaned } }
         var isLargeFiles: Bool { title == "Large files" }
@@ -79,6 +84,21 @@ struct CleanReport: Sendable, Equatable {
     var allRows: [Row] { sections.flatMap(\.rows) }
     var reviewRows: [Row] { allRows.filter { $0.kind == .review } }
     var rowsTotalBytes: Int64 { sections.map(\.totalBytes).reduce(0, +) }
+
+    /// Takes each section's size from Mole's preview file, the list its "Potential space" total is summed
+    /// from, so the categories add up to that total. Does nothing unless the file accounts for the total
+    /// Mole printed (a stale or unreadable file would not), and returns whether it did.
+    @discardableResult
+    mutating func reconcile(with preview: CleanPreviewList) -> Bool {
+        guard let summary, summary.isDryRun, let total = summary.spaceBytes else { return false }
+        // Both sides are rounded for display (the total to 0.01GB, each path to 0.1MB or 1KB).
+        let tolerance = max(total / 100, 1_000_000)
+        guard abs(preview.measuredBytes - total) <= tolerance else { return false }
+        for i in sections.indices {
+            sections[i].measuredBytes = preview.measuredBytes(for: sections[i].title)
+        }
+        return true
+    }
 }
 
 struct CleanParser {
@@ -256,7 +276,20 @@ struct CleanPreviewList: Sendable, Equatable {
     var sections: [Section] = []
 
     func entries(for section: String) -> [Entry] {
-        sections.first { $0.title == section }?.entries ?? []
+        sections.filter { $0.title == section }.flatMap(\.entries)
+    }
+
+    /// Bytes Mole counts for a section: every measured path that isn't inside another listed path.
+    /// Nil when the file has nothing for that section.
+    func measuredBytes(for section: String) -> Int64? {
+        let entries = entries(for: section)
+        return entries.isEmpty ? nil : Self.measuredBytes(entries)
+    }
+
+    var measuredBytes: Int64 { Self.measuredBytes(sections.flatMap(\.entries)) }
+
+    private static func measuredBytes(_ entries: [Entry]) -> Int64 {
+        entries.filter { $0.countedUnder == nil }.compactMap(\.sizeBytes).reduce(0, +)
     }
 
     static var lineRegex: Regex<(Substring, Substring, Substring, Substring?, Substring?)> { /^(.*)  # (size unknown|[\d.]+(?:TB|GB|MB|KB|B))(?:, (\d+) items)?(?:, counted under (.*))?$/ }

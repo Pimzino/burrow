@@ -128,7 +128,9 @@ def cmd_replay(path, section_delay=1.2, line_delay=0.08):
         # The app reads the preview file named in the summary ("Detailed file list:").
         target = clean_list_path()
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(os.path.join(FIXTURES, "clean-list.txt")) as f:
+        # "clean-dry-run-system.txt" pairs with "clean-list-system.txt".
+        variant = os.path.basename(path)[len("clean-dry-run"):]
+        with open(os.path.join(FIXTURES, "clean-list" + variant)) as f:
             content = fill(f.read())
         with open(target, "w") as f:
             f.write(content)

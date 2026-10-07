@@ -33,9 +33,9 @@
 /Users/demo/Library/Caches/com.apple.Music  # 96.1MB
 
 === Browsers ===
-/Users/demo/Library/Caches/Google/Chrome/Default/Cache  # 1.38GB
+/Users/demo/Library/Caches/Google/Chrome/Default/Cache  # 1.38GB, counted under /Users/demo/Library/Caches/Google
 /Users/demo/Library/Application Support/Google/Chrome/Default/Code Cache  # 214.9MB
-/Users/demo/Library/Caches/com.apple.Safari/WebKitCache  # 168.2MB
+/Users/demo/Library/Caches/com.apple.Safari/WebKitCache  # 168.2MB, counted under /Users/demo/Library/Caches/com.apple.Safari
 /Users/demo/Library/Caches/Arc  # 352.7MB
 
 === Developer tools ===
@@ -43,16 +43,13 @@
 /Users/demo/Library/Developer/Xcode/DerivedData/WeatherApp-bdwqoxrkme  # 1.48GB
 /Users/demo/Library/Developer/Xcode/DerivedData/Notes-cfhyzsltaq  # 1.22GB
 /Users/demo/.npm/_cacache  # 1.08GB
-/Users/demo/Library/Caches/Homebrew/downloads  # 865.4MB
+/Users/demo/Library/Caches/Homebrew/downloads  # 865.4MB, counted under /Users/demo/Library/Caches/Homebrew
 /Users/demo/Library/pnpm/store  # 642.0MB
 /Users/demo/Library/Caches/CocoaPods  # 318.6MB
-/Users/demo/Library/Caches/pip  # 210.3MB
 /Users/demo/Library/Developer/CoreSimulator/Caches  # 188.7MB
 
 === Apps & utilities ===
 /Users/demo/Library/Application Support/Code/Cache  # 284.1MB
-/Users/demo/Library/Logs/zoom.us  # 46.8MB
-/Users/demo/Library/Caches/com.raycast.macos  # 22.4MB
 
 === Application Support ===
 /Users/demo/Library/Application Support/CrashReporter  # 139.6MB, 7 items
@@ -68,6 +65,6 @@
 # ============================================
 # Summary
 # ============================================
-# Potential cleanup: 24.31GB
-# Items: 197
+# Potential cleanup: 23.42GB
+# Items: 147
 # Categories: 8

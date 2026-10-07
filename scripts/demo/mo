@@ -87,6 +87,11 @@ case "$command" in
         has --dry-run -n || refuse "$@"
         # An external-volume preview is a real (read-only) dry run; everything else is the fixture.
         has --external && exec "$REAL_CLI" "$@" < /dev/null
+        # A `clean-variant` file holding "system" replays a scan that includes system caches
+        # (scripts/clean-totals-e2e.sh). A file, because Burrow passes Mole only a fixed set of variables.
+        if [[ "$(cat "${TMPDIR:-/tmp}/burrow-demo/clean-variant" 2> /dev/null)" == "system" ]]; then
+            helper replay "$FIXTURES/clean-dry-run-system.txt" 0.3 0.03
+        fi
         helper replay "$FIXTURES/clean-dry-run.txt" 1.6 0.12
         ;;
     "optimize" | "optimise")

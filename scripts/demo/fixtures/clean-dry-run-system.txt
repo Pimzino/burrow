@@ -1,0 +1,51 @@
+
+Clean Your Mac
+
+Dry Run Mode, Preview only, no deletions
+
+⚙ Apple Silicon | Free space: 101.36GB
+✓ Whitelist: 13 core patterns active
+  ↳ /Users/demo/Library/Caches/ms-playwright*
+  ↳ /Users/demo/.gradle/caches/*
+  ↳ /Users/demo/Library/Caches/com.apple.finder
+
+➤ System
+  ✓ Browser code signature caches, 1 items
+
+➤ User essentials
+  → User app cache · 2 items, 38.7MB dry
+  → User app logs · 0B dry
+
+➤ App caches
+  → Geod temp files · 0B dry
+  → Finder extension cache · 3.4MB dry
+
+➤ Browsers
+  → Chrome old versions · 1 dirs, 748.0MB dry
+
+➤ Cloud & Office
+  ✓ Nothing to clean
+
+➤ Developer tools
+  → npm cache · would clean
+  → Claude cache · 8KB dry
+  → Claude sentry cache · 2 items, 21KB dry
+  → Homebrew cache · 2 items, 4.1MB dry
+
+➤ Apps & utilities
+  ✓ Nothing to clean
+
+➤ Large files
+  ⊙ Simulator data · 5.50GB · ~/Library/Developer/CoreSimulator/Devices
+
+➤ Project artifacts
+  ◎ Build artifacts · scan skipped · mo purge
+
+
+======================================================================
+Dry run complete - no changes made
+Potential space: 7.53GB | Items: 12 | Categories: 5
+Detailed file list: @CLEAN_LIST@
+Use mo clean --whitelist to add protection rules
+======================================================================
+

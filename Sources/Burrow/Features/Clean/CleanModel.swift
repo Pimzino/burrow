@@ -280,7 +280,11 @@ final class CleanModel {
     private func reloadPreview() {
         guard scannedConfig?.isExternal != true else { preview = nil; return }
         let path = report.summary?.previewFile ?? MolePaths.cleanPreview
-        if let text = MoleConfigIO.read(path) { preview = CleanPreviewList.parse(text) }
+        if let text = MoleConfigIO.read(path) {
+            let list = CleanPreviewList.parse(text)
+            preview = list
+            if report.reconcile(with: list), scanReport != nil { scanReport = report }
+        }
         refreshProtection()
     }
 
@@ -297,6 +301,10 @@ final class CleanModel {
             "exitCode": run.exitCode.map(String.init) ?? "none",
             "seconds": String(format: "%.0f", run.duration),
             "cleanAllowed": cleanBlocker == nil ? "yes" : "no",
+            "categoriesTotal": ByteFormat.string(report.rowsTotalBytes),
+            "categoriesFromPreview": report.sections.contains { $0.measuredBytes != nil } ? "yes" : "no",
+            "categorySizes": report.sections.filter { $0.totalBytes > 0 }
+                .map { "\($0.title)=\(ByteFormat.string($0.totalBytes))" }.joined(separator: "; "),
         ]
         if let preview { metrics["previewSections"] = "\(preview.sections.count)" }
         automation.record("clean", passed: passed,

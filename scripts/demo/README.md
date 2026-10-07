@@ -22,7 +22,7 @@ a preview, a listing or a status query:
 |---|---|
 | `--version`, `--help` | Real Mole |
 | `status …` (incl. `--watch`, `--json`) | Real Mole, each JSON line anonymised: host `My Mac`, generic process names, generic Bluetooth devices, `192.168.1.x` addresses, no proxy host, external disks shown as `/Volumes/Backup` |
-| `clean --dry-run` | Replays `fixtures/clean-dry-run.txt` (~30 s) and writes the matching preview file to `$TMPDIR/burrow-demo/clean-list.txt` |
+| `clean --dry-run` | Replays `fixtures/clean-dry-run.txt` (~30 s) and writes the matching preview file to `$TMPDIR/burrow-demo/clean-list.txt`. When `$TMPDIR/burrow-demo/clean-variant` contains `system` it replays `fixtures/clean-dry-run-system.txt` instead: a scan that includes system caches, where Mole prints a row without a size and counts some paths under another section |
 | `clean --external … --dry-run` | Real Mole (read-only dry run) |
 | `optimize --dry-run` | Replays `fixtures/optimize-dry-run.txt` (a recorded real dry run with generic process names) |
 | `purge --dry-run` | Replays `fixtures/purge-dry-run.txt` |

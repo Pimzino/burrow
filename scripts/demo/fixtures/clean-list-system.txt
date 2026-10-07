@@ -1,0 +1,40 @@
+# Mole Cleanup Preview - @NOW@
+#
+# How to protect files:
+# 1. Copy any path below to ~/.config/mole/whitelist
+# 2. Run: mo clean --whitelist
+#
+# Example:
+#   /Users/*/Library/Caches/com.example.app
+#
+
+
+=== System ===
+/private/var/folders/zz/demo0000000000000000000000000000gq/X/com.google.Chrome.code_sign_clone  # 6.74GB
+
+=== User essentials ===
+/Users/demo/Library/Caches/Homebrew  # 38.7MB
+/Users/demo/Library/Caches/GeoServices  # 8KB
+/Users/demo/Library/Logs/mole
+[  # 0B
+
+=== App caches ===
+/Users/demo/Library/Containers/com.apple.geod/Data/tmp/TemporaryItems  # 0B
+/Users/demo/Library/Containers/com.example.FinderExt/Data/Library/Caches/com.example.FinderExt  # 3.4MB
+
+=== Browsers ===
+/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/154.0.8037.93  # 748.0MB
+
+=== Developer tools ===
+/Users/demo/Library/Application Support/Claude/Cache/Cache_Data  # 8KB
+/Users/demo/Library/Application Support/Claude/sentry/session.json  # 1KB
+/Users/demo/Library/Application Support/Claude/sentry/scope_v3.json  # 20KB
+/Users/demo/Library/Caches/Homebrew/downloads/mole--1.58.0.bottle_manifest.json  # 9KB, counted under /Users/demo/Library/Caches/Homebrew
+/Users/demo/Library/Caches/Homebrew/downloads/mole--1.58.0.arm64_tahoe.bottle.tar.gz  # 4.1MB, counted under /Users/demo/Library/Caches/Homebrew
+
+# ============================================
+# Summary
+# ============================================
+# Potential cleanup: 7.53GB
+# Items: 12
+# Categories: 5
