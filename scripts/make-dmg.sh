@@ -158,6 +158,9 @@ hdiutil convert "$RW" -quiet -format UDZO -imagekey zlib-level=9 -o "$DMG"
 # 7. Sign the image with the same identity rules as build-app.sh.
 IDENTITY="${MOLE_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]]; then
+  IDENTITY=$(./scripts/signing-identity.sh unlock 2>/dev/null || true)
+fi
+if [[ -z "$IDENTITY" ]]; then
   IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/ {print $2; exit}')
 fi
 if [[ -n "$IDENTITY" && "$IDENTITY" != "-" ]]; then

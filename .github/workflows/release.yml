@@ -3,10 +3,13 @@
 # Runner and Xcode: see ci.yml (macos-26, Xcode 26.6 at /Applications/Xcode_26.6.app, from the
 # actions/runner-images macos-26-arm64 image readme).
 #
-# Signing is optional. If the repository secrets MACOS_CERT_P12_BASE64 (a base64-encoded .p12 with the
-# certificate and its private key) and MACOS_CERT_PASSWORD are set, the certificate is imported into a
-# temporary keychain and used for the app and the DMG. Otherwise both are signed ad-hoc.
-# Burrow is not notarized either way; docs/INSTALL.md explains how users open it.
+# Signing: the repository secrets MACOS_CERT_P12_BASE64 (a base64-encoded .p12 with the certificate and
+# its private key) and MACOS_CERT_PASSWORD hold Burrow's release identity (scripts/signing-identity.sh).
+# It is imported into a temporary keychain and used for the app and the DMG. Both secrets are required,
+# and the certificate must be the one pinned in Resources/release-signing.sha1: macOS ties privacy
+# permissions to the signature, so an ad-hoc build, or one signed with another certificate, would make
+# macOS ask every user for Full Disk Access and the rest again (docs/RELEASING.md).
+# Burrow is not notarized; docs/INSTALL.md explains how users open it.
 #
 # In-app updates: the DMG is signed with the Ed25519 key in the BURROW_UPDATE_SIGNING_KEY secret and the
 # signature is published as Burrow-<version>.dmg.sig. Installed copies only install a DMG whose signature
@@ -51,15 +54,14 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Import signing certificate (optional)
+      - name: Import signing certificate
         env:
           MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
           if [[ -z "$MACOS_CERT_P12_BASE64" || -z "$MACOS_CERT_PASSWORD" ]]; then
-            echo "No signing secrets: the app and DMG will be signed ad-hoc."
-            echo "MOLE_SIGN_IDENTITY=-" >> "$GITHUB_ENV"
-            exit 0
+            echo "::error::MACOS_CERT_P12_BASE64 and MACOS_CERT_PASSWORD are not set. An ad-hoc release would reset every user's privacy permissions; run scripts/signing-identity.sh set-github-secrets"
+            exit 1
           fi
           KEYCHAIN="$RUNNER_TEMP/burrow-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
@@ -76,13 +78,20 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           rm -f "$P12"
 
-          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | awk 'NR==1 && $2 ~ /^[0-9A-F]{40}$/ {print $2}')"
+          # Not `find-identity -v`: a self-signed certificate is not a trusted ("valid") identity, and
+          # codesign doesn't need it to be.
+          IDENTITY="$(security find-identity -p codesigning "$KEYCHAIN" | awk '$1 == "1)" && $2 ~ /^[0-9A-F]{40}$/ {print $2; exit}')"
           if [[ -z "$IDENTITY" ]]; then
-            echo "::error::The imported certificate has no valid code-signing identity"
-            security find-identity -v -p codesigning "$KEYCHAIN"
+            echo "::error::The imported certificate has no code-signing identity"
+            security find-identity -p codesigning "$KEYCHAIN"
             exit 1
           fi
-          echo "Signing with $(security find-identity -v -p codesigning "$KEYCHAIN" | head -1)"
+          PINNED="$(tr -d '[:space:]' < Resources/release-signing.sha1)"
+          if [[ "$IDENTITY" != "$PINNED" ]]; then
+            echo "::error::The signing certificate ($IDENTITY) is not the pinned release identity ($PINNED)"
+            exit 1
+          fi
+          echo "Signing with $IDENTITY"
           echo "MOLE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
           echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
 
@@ -93,6 +102,9 @@ jobs:
         run: |
           ./scripts/build-app.sh release
           codesign --verify --deep --strict --verbose=2 build/Burrow.app
+          # The requirement macOS stores with each privacy permission must name the pinned certificate.
+          ./scripts/signing-identity.sh requirement build/Burrow.app
+          codesign --verify -R="certificate leaf = H\"$(tr -d '[:space:]' < Resources/release-signing.sha1)\"" build/Burrow.app
           plutil -lint build/Burrow.app/Contents/Info.plist
           /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/Burrow.app/Contents/Info.plist
 

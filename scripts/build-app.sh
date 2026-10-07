@@ -9,7 +9,9 @@
 #   BURROW_UPDATE_PUBLIC_KEY  overrides BurrowUpdatePublicKey (the Ed25519 key updates must be signed with;
 #                       scripts/update-e2e.sh uses a throwaway key)
 #   BURROW_BUNDLE_ID    overrides CFBundleIdentifier (test builds that must not share the real app's settings)
-#   MOLE_SIGN_IDENTITY  codesigning identity (name or SHA-1); "-" forces an ad-hoc signature
+#   MOLE_SIGN_IDENTITY  codesigning identity (name or SHA-1); "-" forces an ad-hoc signature.
+#                       Default: Burrow's release identity (scripts/signing-identity.sh) when this Mac
+#                       has it, else an Apple Development certificate, else ad-hoc.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -53,9 +55,14 @@ for f in menubar-template.png menubar-template@2x.png; do
 done
 
 # Sign with a stable identity so macOS privacy permissions (Files & Folders, Automation, Full Disk
-# Access) survive rebuilds. TCC ties grants to the signature; an ad-hoc signature changes every build.
-# Override with MOLE_SIGN_IDENTITY="<name or SHA-1>" (or "-" for ad-hoc).
+# Access) survive rebuilds and updates. TCC ties grants to the signature's designated requirement; an
+# ad-hoc signature's requirement is the hash of that one build, so it changes every time.
+# Order: MOLE_SIGN_IDENTITY ("<name or SHA-1>", or "-" for ad-hoc), then Burrow's release identity
+# (scripts/signing-identity.sh, the one releases use), then an Apple Development certificate.
 IDENTITY="${MOLE_SIGN_IDENTITY:-}"
+if [[ -z "$IDENTITY" ]]; then
+  IDENTITY=$(./scripts/signing-identity.sh unlock 2>/dev/null || true)
+fi
 if [[ -z "$IDENTITY" ]]; then
   IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/ {print $2; exit}')
 fi

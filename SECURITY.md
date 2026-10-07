@@ -46,4 +46,4 @@ If you have enabled Touch ID for sudo, macOS shows its own Touch ID prompt first
 
 ## Code signing
 
-Release builds are not notarized. See [docs/INSTALL.md](docs/INSTALL.md) for why, and for how to verify a download with the published SHA-256 checksum.
+Release builds are signed with Burrow's own self-signed certificate (so macOS keeps your privacy permissions across updates; see [docs/RELEASING.md](docs/RELEASING.md)) and are not notarized. The certificate does not prove who built a download: the checksum and the updater's Ed25519 signature do. See [docs/INSTALL.md](docs/INSTALL.md) for why, and for how to verify a download with the published SHA-256 checksum.

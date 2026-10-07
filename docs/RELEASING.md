@@ -1,6 +1,6 @@
 # Releasing Burrow
 
-Pushing a version tag (`v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs `.github/workflows/release.yml`. It builds the app and the DMG, signs the DMG for in-app updates, and publishes a GitHub Release with three assets:
+Pushing a version tag (`v1.2.3`, or `v1.3.0-beta.1` for a pre-release) runs `.github/workflows/release.yml`. It builds the app and the DMG, signs both with Burrow's [code-signing identity](#the-code-signing-identity), signs the DMG for in-app updates, and publishes a GitHub Release with three assets:
 
 | Asset | What it is |
 |---|---|
@@ -29,7 +29,7 @@ Burrow checks `api.github.com/repos/Pimzino/burrow/releases/latest` once a day, 
 4. swaps the new bundle in atomically. If the folder needs an administrator, macOS asks for approval.
 5. quits, and a detached helper reopens the new version.
 
-The signature is the anchor of trust. Releases are not notarized and are often signed ad-hoc, so the code signature alone can't tell a genuine build from a forged one. A release without a `.sig`, or a build without a public key, is offered only as a link to the release page and is never installed in place.
+The Ed25519 signature is the anchor of trust. Releases are not notarized and their code-signing certificate is self-signed, so the code signature is not what the updater trusts. A release without a `.sig`, or a build without a public key, is offered only as a link to the release page and is never installed in place.
 
 ## The signing key
 
@@ -54,6 +54,29 @@ swift scripts/update-signing.swift public-key                        # the publi
 swift scripts/update-signing.swift sign build/Burrow-1.1.0.dmg       # prints a signature
 swift scripts/update-signing.swift verify FILE FILE.sig PUBLIC_KEY   # checks one
 ```
+
+## The code-signing identity
+
+macOS stores every privacy permission (Full Disk Access, Files & Folders, Automation) together with the *designated requirement* of the app it was given to, and honours it only for code that satisfies that requirement. An ad-hoc signature's requirement is the hash of that single build (`cdhash H"…"`), so every update looked like a different app and macOS asked for everything again, while System Settings still showed the old, dead entry switched on. Releases up to 1.2.1 had this problem.
+
+Releases are now signed with one self-signed certificate, "Burrow Release Signing (self-signed)". Their requirement is `identifier "io.github.pimzino.burrow" and certificate leaf = H"<SHA-1>"`, which every build signed with that certificate satisfies. It needs no Apple Developer Program membership and doesn't change Gatekeeper's behaviour.
+
+The identity lives in three places:
+
+- the maintainer's login Keychain (service `io.github.pimzino.burrow.code-signing`), with a working copy in `~/Library/Keychains/burrow-signing.keychain-db` that `build-app.sh` and `make-dmg.sh` use automatically
+- the `MACOS_CERT_P12_BASE64` and `MACOS_CERT_PASSWORD` repository secrets, which the release workflow signs with
+- its SHA-1 in `Resources/release-signing.sha1`
+
+The release workflow refuses to publish when the secrets are missing, when the certificate is not the pinned one, or when the built app's requirement is ad-hoc.
+
+```bash
+scripts/signing-identity.sh create               # once per project (already done); writes Resources/release-signing.sha1
+scripts/signing-identity.sh set-github-secrets   # copies it to the repository secrets
+scripts/signing-identity.sh install              # on a new Mac, after restoring the Keychain items
+scripts/signing-e2e.sh                           # checks that two versions share one requirement
+```
+
+**Never replace the identity** unless it has leaked, and back up the Keychain items. A new certificate is a new app to macOS: every user would be asked for their permissions once more. The certificate is valid for 20 years. A paid Developer ID would work the same way and also allow notarization; switching to one is the same one-time reset.
 
 ## Testing the updater
 

@@ -13,6 +13,7 @@ Read the section for your command before writing a parser.
 - `swift build` builds the debug binary at `.build/debug/Burrow`. It runs directly, with no bundle needed.
 - `scripts/build-app.sh [debug|release]` produces `build/Burrow.app` (`BURROW_VERSION` overrides its version).
 - `scripts/make-dmg.sh [version]` packages it as `build/Burrow-<version>.dmg` (see the script header).
+- `scripts/signing-identity.sh` manages the release signing identity, and `scripts/signing-e2e.sh` checks that two builds signed with it share one designated requirement, so macOS keeps privacy permissions across updates (docs/RELEASING.md).
 - `scripts/update-e2e.sh` tests in-app updates end to end against a local fake GitHub API (docs/RELEASING.md).
 - `scripts/setup-e2e.sh` captures every first-run setup step in dark and light, then walks the flow to the end (report in `e2e-results/setup-<timestamp>/`).
 - `scripts/shot.sh <binary> <route> <out.png> [wait] [YES|NO autorun] [reportDir]` launches one screen and captures its window as a PNG.

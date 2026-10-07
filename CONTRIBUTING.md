@@ -18,7 +18,7 @@ open build/Burrow.app
 ./scripts/make-dmg.sh 0.0.0-dev      # build/Burrow-0.0.0-dev.dmg (optional)
 ```
 
-`build-app.sh` signs with your **Apple Development** certificate if Xcode has one (Xcode → Settings → Accounts), so macOS privacy permissions survive rebuilds. Without one it signs ad-hoc and macOS asks for permissions again after every build. Set `MOLE_SIGN_IDENTITY` to choose an identity, or `-` for ad-hoc.
+`build-app.sh` signs with your **Apple Development** certificate if Xcode has one (Xcode → Settings → Accounts), so macOS privacy permissions survive rebuilds. Without one it signs ad-hoc and macOS asks for permissions again after every build. Set `MOLE_SIGN_IDENTITY` to choose an identity, or `-` for ad-hoc. (The maintainer's Mac also has Burrow's release identity, which `build-app.sh` prefers; see [docs/RELEASING.md](docs/RELEASING.md).)
 
 The build must finish with **zero errors and zero warnings** (Swift 6 language mode).
 

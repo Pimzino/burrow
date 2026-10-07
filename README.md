@@ -103,7 +103,7 @@ After that, Burrow opens normally. [docs/INSTALL.md](docs/INSTALL.md) has the fu
 
 ### Why the "can't verify" warning?
 
-Apple only lets an app open without warnings if it is signed with a paid **Developer ID** certificate and **notarized** by Apple. Burrow is a free, independent, open-source project, so releases are signed with a free development certificate and aren't notarized. Gatekeeper therefore asks you to approve it once.
+Apple only lets an app open without warnings if it is signed with a paid **Developer ID** certificate and **notarized** by Apple. Burrow is a free, independent, open-source project, so releases are signed with Burrow's own self-signed certificate and aren't notarized. Gatekeeper therefore asks you to approve it once.
 
 The source code is all here: you can read it, or build it yourself in a few minutes (below). Since macOS 15 Sequoia, the old "right-click → Open" trick no longer works; **Open Anyway** in System Settings is the supported route.
 
@@ -122,7 +122,7 @@ open build/Burrow.app
 ./scripts/make-dmg.sh 1.0.0       # → build/Burrow-1.0.0.dmg (+ .sha256)
 ```
 
-If you have an Apple Development certificate in your keychain, `build-app.sh` signs with it automatically. macOS then remembers Burrow's privacy permissions between rebuilds; with ad-hoc signing it asks again after every build.
+If you have an Apple Development certificate in your keychain, `build-app.sh` signs with it automatically. macOS then remembers Burrow's privacy permissions between rebuilds; with ad-hoc signing it asks again after every build. Official releases are signed with one fixed certificate, so updates keep their permissions (`scripts/signing-e2e.sh` checks this).
 
 ### End-to-end tests
 

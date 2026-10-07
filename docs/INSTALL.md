@@ -4,7 +4,7 @@ Burrow needs **macOS 26 (Tahoe) or later on a Mac with Apple silicon**, and the 
 
 ## Why macOS warns you about Burrow
 
-Apple only lets an app open without warnings if it is signed with a paid **Developer ID** certificate and **notarized** (scanned by Apple). Burrow is a free, independent project without a paid Apple Developer Program membership, so release builds are signed ad-hoc or with a development certificate, and they are **not notarized**.
+Apple only lets an app open without warnings if it is signed with a paid **Developer ID** certificate and **notarized** (scanned by Apple). Burrow is a free, independent project without a paid Apple Developer Program membership, so release builds are signed with Burrow's own self-signed certificate, and they are **not notarized**.
 
 When you open Burrow for the first time, Gatekeeper cannot verify it and blocks it. This is expected. You approve it once, and after that it opens normally.
 
@@ -42,7 +42,7 @@ The checksum proves the file is the one published with the release. It does not 
 
 Burrow opens. macOS saves it as an exception to your security settings, so from now on it opens with a normal double-click.
 
-After you install a **new version** of Burrow, macOS may ask you to repeat these steps once, because the new build has a different signature.
+After you download a **new version** by hand, macOS may ask you to repeat these steps once, because every download is checked again. Updates installed by Burrow itself don't need this.
 
 ## Alternative: remove the quarantine flag in Terminal
 
@@ -75,7 +75,13 @@ Burrow asks for access only when a feature needs it. You can review or change an
 | **Automation → Finder** | Asked the first time, or Privacy & Security → Automation → Burrow | Burrow asks Finder for accurate free-space figures, and Burrow and Mole use Finder to move items to the Trash (so you can put them back). |
 | **Administrator password** | A Burrow sheet when needed | Only for system-level tasks such as Optimize, cleaning system caches, Touch ID for sudo, or uninstalling root-owned apps. The password goes straight to `sudo` and is never stored. See [SECURITY.md](../SECURITY.md). |
 
-Privacy permissions are tied to the app's signature. Because Burrow is not signed with a Developer ID, macOS may ask for some permissions again after you update Burrow.
+Privacy permissions are tied to the app's signature. Every release from 1.2.2 on is signed with the same certificate, so macOS keeps your permissions when you update.
+
+Versions up to 1.2.1 were signed differently for each build, so macOS forgot the permissions with every update. Moving from one of those to 1.2.2 or later, macOS asks **one last time**. System Settings may still show Burrow switched on from the old version even though macOS no longer honours it. If so, clear the old entries in Terminal, open Burrow and grant access again:
+
+```bash
+tccutil reset All io.github.pimzino.burrow
+```
 
 ## The Mole CLI
 
